@@ -555,6 +555,168 @@ let lastResumeTimestamp = null;
 let pomodoroTargetTimestamp = null;
 let pendingElapsedMinutes = 0;
 
+// iPad / Mobile Media Session (Thanh điều khiển Lock Screen & Chạy nền)
+const silentAudio = new Audio('silent.wav');
+silentAudio.loop = true;
+
+function playSilentAudio() {
+  if (!silentAudio) return;
+  silentAudio.play().then(() => {
+    updateMediaSession();
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = 'playing';
+    }
+  }).catch(() => {});
+}
+
+function pauseSilentAudio() {
+  if (!silentAudio) return;
+  silentAudio.pause();
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.playbackState = 'paused';
+  }
+}
+
+function stopSilentAudio() {
+  if (!silentAudio) return;
+  silentAudio.pause();
+  silentAudio.currentTime = 0;
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.playbackState = 'none';
+  }
+}
+
+function updateMediaSession() {
+  if (!('mediaSession' in navigator)) return;
+  const modeName = timerMode === 'pomodoro' ? '🍅 Pomodoro' : '📖 Tự học';
+  const timeStr = timerDisplay ? timerDisplay.innerText : '00:00';
+
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: `${modeName}: ${timeStr}`,
+      artist: 'I wanna be better (Đang chạy nền)',
+      album: '⏭ Kết thúc & Lưu | ⏮ Huỷ | ⏸ Tạm dừng',
+      artwork: [
+        { src: 'favicon.ico', sizes: '96x96', type: 'image/x-icon' },
+        { src: 'favicon.ico', sizes: '192x192', type: 'image/x-icon' }
+      ]
+    });
+  } catch (e) {}
+}
+
+function initMediaSessionHandlers() {
+  if (!('mediaSession' in navigator)) return;
+
+  const actionMap = {
+    play: () => {
+      if (!timerRunning && timerMode === 'stopwatch' && btnStopwatchPause) {
+        btnStopwatchPause.click();
+      } else {
+        playSilentAudio();
+      }
+    },
+    pause: () => {
+      if (timerRunning && timerMode === 'stopwatch' && btnStopwatchPause) {
+        btnStopwatchPause.click();
+      } else {
+        pauseSilentAudio();
+      }
+    },
+    stop: () => {
+      if (timerMode === 'stopwatch' && btnStopwatchFinish) {
+        btnStopwatchFinish.click();
+      }
+    },
+    nexttrack: () => {
+      // Bấm nút Next trên màn hình khoá / thanh iPad -> Kết thúc và lưu luôn
+      if (timerMode === 'stopwatch' && btnStopwatchFinish) {
+        btnStopwatchFinish.click();
+      } else if (timerMode === 'pomodoro' && btnPomodoroUrgent) {
+        btnPomodoroUrgent.click();
+      }
+    },
+    previoustrack: () => {
+      // Bấm nút Previous trên màn hình khoá / thanh iPad -> Huỷ kết quả
+      if (timerMode === 'stopwatch' && btnStopwatchCancel) {
+        btnStopwatchCancel.click();
+      } else if (timerMode === 'pomodoro' && btnPomodoroCancel) {
+        btnPomodoroCancel.click();
+      }
+    }
+  };
+
+  for (const [action, handler] of Object.entries(actionMap)) {
+    try {
+      navigator.mediaSession.setActionHandler(action, handler);
+    } catch (e) {}
+  }
+}
+initMediaSessionHandlers();
+
+// Picture-in-Picture (Cửa sổ nổi PiP) cho iPad / Điện thoại
+let pipCanvas = null;
+let pipCtx = null;
+let pipVideo = null;
+const btnTogglePip = document.getElementById('btnTogglePip');
+
+function initPipVideo() {
+  if (pipVideo) return;
+  pipCanvas = document.createElement('canvas');
+  pipCanvas.width = 400;
+  pipCanvas.height = 200;
+  pipCtx = pipCanvas.getContext('2d');
+
+  pipVideo = document.createElement('video');
+  pipVideo.muted = true;
+  pipVideo.autoplay = true;
+  pipVideo.playsInline = true;
+  pipVideo.style.display = 'none';
+  document.body.appendChild(pipVideo);
+
+  if (pipCanvas.captureStream) {
+    pipVideo.srcObject = pipCanvas.captureStream(2);
+  }
+}
+
+function renderPipCanvas() {
+  if (!pipCtx || !pipCanvas) return;
+  const isDark = document.body.classList.contains('dark-mode');
+  pipCtx.fillStyle = isDark ? '#121316' : '#ffffff';
+  pipCtx.fillRect(0, 0, pipCanvas.width, pipCanvas.height);
+
+  pipCtx.fillStyle = isDark ? '#ffffff' : '#121316';
+  pipCtx.font = 'bold 74px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  pipCtx.textAlign = 'center';
+  pipCtx.textBaseline = 'middle';
+  pipCtx.fillText(timerDisplay?.innerText || '00:00', pipCanvas.width / 2, pipCanvas.height / 2 - 15);
+
+  pipCtx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  pipCtx.fillStyle = timerMode === 'pomodoro' ? '#ef4444' : '#10b981';
+  const label = timerMode === 'pomodoro' ? '🍅 Pomodoro' : '📖 I wanna be better';
+  pipCtx.fillText(label, pipCanvas.width / 2, pipCanvas.height / 2 + 50);
+}
+
+if (btnTogglePip) {
+  btnTogglePip.addEventListener('click', async () => {
+    initPipVideo();
+    renderPipCanvas();
+
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else if (pipVideo && pipVideo.requestPictureInPicture) {
+        await pipVideo.play();
+        await pipVideo.requestPictureInPicture();
+      } else {
+        alert('Trình duyệt hoặc thiết bị chưa hỗ trợ tính năng Cửa sổ nổi PiP.');
+      }
+    } catch (err) {
+      console.warn('PiP error:', err);
+      alert('Để mở cửa sổ nổi PiP, hãy bấm Bắt đầu học trước rồi bấm lại nút này.');
+    }
+  });
+}
+
 const timerDisplay = document.getElementById('timerDisplay');
 const timerActionIdle = document.getElementById('timerActionIdle');
 const timerActionStopwatch = document.getElementById('timerActionStopwatch');
@@ -604,7 +766,9 @@ function resetToIdle() {
   pomodoroTargetTimestamp = null;
   pendingElapsedMinutes = 0;
 
+  stopSilentAudio();
   updateTimerDisplay();
+  renderPipCanvas();
 
   if (timerActionIdle) timerActionIdle.classList.remove('hidden');
   if (timerActionStopwatch) timerActionStopwatch.classList.add('hidden');
@@ -621,14 +785,19 @@ function tickTimer() {
     }
     timerSeconds = stopwatchAccumulatedSec + currentChunk;
     updateTimerDisplay();
+    updateMediaSession();
+    renderPipCanvas();
   } else if (timerMode === 'pomodoro') {
     // Đếm ngược từ 25:00 về 0
     timerSeconds = Math.max(0, Math.round((pomodoroTargetTimestamp - now) / 1000));
     updateTimerDisplay();
+    updateMediaSession();
+    renderPipCanvas();
 
     if (timerSeconds <= 0) {
       clearInterval(timerInterval);
       timerRunning = false;
+      stopSilentAudio();
       
       const newLog = {
         id: 'lg_' + Date.now(),
@@ -647,6 +816,13 @@ function tickTimer() {
       sendToSheet('append', 'StudyLogs', { data: newLog });
       resetToIdle();
 
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('🔔 Hoàn thành 25 phút Pomodoro!', {
+          body: 'Tuyệt vời! Phiên học đã được tự động lưu vào lịch sử.',
+          icon: 'favicon.ico'
+        });
+      }
+
       alert('🔔 Chúc mừng! Bạn đã hoàn thành trọn vẹn 25 phút Pomodoro (Đã tự động lưu vào lịch sử học tập)!');
     }
   }
@@ -662,6 +838,11 @@ if (btnStartStopwatch) {
     lastResumeTimestamp = Date.now();
 
     updateTimerDisplay();
+    playSilentAudio();
+
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
 
     if (timerActionIdle) timerActionIdle.classList.add('hidden');
     if (timerActionStopwatch) timerActionStopwatch.classList.remove('hidden');
@@ -684,11 +865,13 @@ if (btnStopwatchPause) {
         stopwatchAccumulatedSec += Math.round((Date.now() - lastResumeTimestamp) / 1000);
       }
       lastResumeTimestamp = null;
+      pauseSilentAudio();
     } else {
       // Tiếp tục đếm
       timerRunning = true;
       btnStopwatchPause.innerText = '⏸ Tạm dừng';
       lastResumeTimestamp = Date.now();
+      playSilentAudio();
       timerInterval = setInterval(tickTimer, 1000);
     }
   });
@@ -753,6 +936,11 @@ if (btnStartPomodoro) {
     pomodoroTargetTimestamp = Date.now() + 25 * 60 * 1000;
 
     updateTimerDisplay();
+    playSilentAudio();
+
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
 
     if (timerActionIdle) timerActionIdle.classList.add('hidden');
     if (timerActionStopwatch) timerActionStopwatch.classList.add('hidden');

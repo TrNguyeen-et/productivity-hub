@@ -1038,6 +1038,26 @@ body.dark-mode .btn-pill-light {
   font-size: 0.8rem;
 }
 
+.btn-pip-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-pip-badge:hover {
+  color: var(--text-dark);
+  border-color: var(--text-dark);
+  background: var(--bg-main);
+}
+
 .input-inline-group input:focus,
 .todo-create-bar input:focus {
   border-color: var(--text-dark);
