@@ -966,9 +966,23 @@ function renderAll() {
   renderSchedule();
 }
 
-// Initial Boot: Check if active user exists
+// Initial Boot: Always show the Artistic Gateway Portal as default screen on startup
 if (activeUser) {
-  loadUserData(activeUser);
-} else {
-  showWelcomePortal();
+  const isSun = activeUser === 'sun';
+  const iconSvg = isSun ? ICON_GIRL_SVG : ICON_BOY_SVG;
+  const label = document.getElementById('currentUserLabel');
+  if (label) label.innerText = isSun ? 'Sun (P1)' : 'Icarus (P2)';
+  const iconSpan = document.getElementById('currentUserIcon');
+  if (iconSpan) iconSpan.innerHTML = iconSvg;
+  const avatar = document.querySelector('.user-avatar');
+  if (avatar) avatar.innerHTML = iconSvg;
+
+  state.apiUrl = localStorage.getItem(getUserKey('api_url')) || localStorage.getItem('ph_shared_api_url') || '';
+  state.todos = JSON.parse(localStorage.getItem(getUserKey('todos')) || '[]');
+  state.notes = JSON.parse(localStorage.getItem(getUserKey('notes')) || '[]');
+  state.studyLogs = JSON.parse(localStorage.getItem(getUserKey('study_logs')) || '[]');
+  state.goals = JSON.parse(localStorage.getItem(getUserKey('goals')) || '[]');
+  state.schedule = JSON.parse(localStorage.getItem(getUserKey('schedule')) || '[]');
+  renderAll();
 }
+showWelcomePortal();

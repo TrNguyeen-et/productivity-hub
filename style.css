@@ -494,13 +494,25 @@ body {
 }
 
 .btn-pill-light {
-  background: #ffffff;
-  color: var(--text-dark);
+  background: #ffffff !important;
+  color: #121316 !important;
   font-weight: 700;
   padding: 0.65rem 1.25rem;
   border-radius: var(--radius-pill);
   border: none;
   cursor: pointer;
+}
+.btn-pill-light:hover {
+  background: #f4f4f5 !important;
+  color: #000000 !important;
+}
+body.dark-mode .btn-pill-light {
+  background: #ffffff !important;
+  color: #121316 !important;
+}
+#btnStartQuickStudy {
+  background: #ffffff !important;
+  color: #121316 !important;
 }
 
 .btn-pill-lg {
