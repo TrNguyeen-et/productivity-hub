@@ -18,9 +18,44 @@ function saveToStorage(baseKey, data) {
   localStorage.setItem(getUserKey(baseKey), JSON.stringify(data));
 }
 
-// Monochrome SVG Icons for P1 (Girl) and P2 (Boy)
-const ICON_GIRL_SVG = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><path d="M15 7.5c1.5-1.5 3.5-.5 3.5 2 0 3-2 5-4.5 5.5"/><path d="M4 21v-2a5 5 0 0 1 10 0v2"/></svg>`;
-const ICON_BOY_SVG = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M9 4.5c1-1 3-1 4 0"/></svg>`;
+// Monochrome SVG Icons for P1 (Girl) and P2 (Boy) - strictly black/white line art
+const ICON_GIRL_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M5.5 21v-2a5 5 0 0 1 10 0v2"/><path d="M16 6.5c1.8 1.2 2.8 3.2 2.2 5.5s-2.2 3.5-3.7 3.5"/></svg>`;
+const ICON_BOY_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4.5 4.5 0 0 1 9 0v2"/><path d="M9.5 4c1-1 3-1 4 0"/></svg>`;
+
+// Automatic purge of demo/garbage data on startup to guarantee a 100% clean state
+(function cleanDemoDataFromStorage() {
+  const users = ['sun', 'icarus', 'default'];
+  users.forEach(u => {
+    // 1. Purge demo study logs (lg_demo_*)
+    const logKey = `ph_${u}_study_logs`;
+    try {
+      const logs = JSON.parse(localStorage.getItem(logKey) || '[]');
+      const cleanLogs = logs.filter(l => l && l.id && !l.id.startsWith('lg_demo_'));
+      localStorage.setItem(logKey, JSON.stringify(cleanLogs));
+    } catch(e) {}
+
+    // 2. Purge demo goals (g1, g2)
+    const goalKey = `ph_${u}_goals`;
+    try {
+      const goals = JSON.parse(localStorage.getItem(goalKey) || '[]');
+      const cleanGoals = goals.filter(g => g && g.id !== 'g1' && g.id !== 'g2');
+      localStorage.setItem(goalKey, JSON.stringify(cleanGoals));
+    } catch(e) {}
+
+    // 3. Purge demo schedule (s1, s2, s3, s4)
+    const schKey = `ph_${u}_schedule`;
+    try {
+      const sch = JSON.parse(localStorage.getItem(schKey) || '[]');
+      const cleanSch = sch.filter(s => s && !['s1', 's2', 's3', 's4'].includes(s.id));
+      localStorage.setItem(schKey, JSON.stringify(cleanSch));
+    } catch(e) {}
+  });
+
+  // Remove any legacy single-user keys
+  localStorage.removeItem('ph_study_logs');
+  localStorage.removeItem('ph_goals');
+  localStorage.removeItem('ph_schedule');
+})();
 
 function loadUserData(user) {
   activeUser = user;
@@ -29,7 +64,7 @@ function loadUserData(user) {
   const isSun = user === 'sun';
   const iconSvg = isSun ? ICON_GIRL_SVG : ICON_BOY_SVG;
 
-  // Update header label & icon
+  // Update header label & icon (strictly monochrome)
   const label = document.getElementById('currentUserLabel');
   if (label) {
     label.innerText = isSun ? 'Sun (P1)' : 'Icarus (P2)';
@@ -51,7 +86,7 @@ function loadUserData(user) {
     portal.classList.add('hidden-portal');
   }
 
-  // Load state for this user
+  // Load state for this user (strictly clean)
   state.apiUrl = localStorage.getItem(getUserKey('api_url')) || localStorage.getItem('ph_shared_api_url') || '';
   state.todos = JSON.parse(localStorage.getItem(getUserKey('todos')) || '[]');
   state.notes = JSON.parse(localStorage.getItem(getUserKey('notes')) || '[]');
@@ -59,7 +94,6 @@ function loadUserData(user) {
   state.goals = JSON.parse(localStorage.getItem(getUserKey('goals')) || '[]');
   state.schedule = JSON.parse(localStorage.getItem(getUserKey('schedule')) || '[]');
 
-  seedDemoData();
   renderAll();
 
   if (state.apiUrl) {
@@ -74,44 +108,6 @@ function showWelcomePortal() {
   if (portal) {
     portal.classList.remove('hidden-portal');
     switchGatewayMode('light'); // Nền trắng là mặc định
-  }
-}
-
-// Seed Demo Data per user
-function seedDemoData() {
-  if (state.goals.length === 0) {
-    state.goals = activeUser === 'sun' ? [
-      { id: 'g1', title: 'Hoàn thành 30 giờ tự học tháng này', target: 30, achieved: 14, unit: 'giờ' },
-      { id: 'g2', title: 'Hoàn thành 50 bài tập Todo', target: 50, achieved: 32, unit: 'việc' }
-    ] : [
-      { id: 'g1', title: 'Mục tiêu bay cao: 40 giờ tự học', target: 40, achieved: 18, unit: 'giờ' },
-      { id: 'g2', title: 'Nhiệm vụ Icarus: 60 bài tập', target: 60, achieved: 25, unit: 'việc' }
-    ];
-    saveToStorage('goals', state.goals);
-  }
-  if (state.schedule.length === 0) {
-    state.schedule = [
-      { id: 's1', day: 'Thứ 2', start_time: '08:00', end_time: '11:00', activity: 'Lập trình & Kỹ năng số', type: 'Học' },
-      { id: 's2', day: 'Thứ 2', start_time: '14:00', end_time: '16:30', activity: 'Đọc sách & Thư giãn', type: 'Rảnh' },
-      { id: 's3', day: 'Thứ 4', start_time: '19:30', end_time: '21:30', activity: 'Tiếng Anh giao tiếp', type: 'Học' }
-    ];
-    saveToStorage('schedule', state.schedule);
-  }
-  if (state.studyLogs.length === 0) {
-    const today = new Date();
-    const demoOffsets = [0, 1, 2, 4, 6, 8, 10, 13, 15, 20, 22, 25];
-    demoOffsets.forEach(offset => {
-      const d = new Date(today);
-      d.setDate(d.getDate() - offset);
-      state.studyLogs.push({
-        id: 'lg_demo_' + offset,
-        subject: offset % 2 === 0 ? 'Toán học' : 'Lập trình',
-        duration_minutes: 45 + (offset * 15) % 90,
-        date: d.toISOString().split('T')[0],
-        notes: ''
-      });
-    });
-    saveToStorage('study_logs', state.studyLogs);
   }
 }
 
@@ -156,23 +152,23 @@ async function fetchAllFromSheet() {
     const json = await res.json();
     if (json.status === 'success' && json.data) {
       if (json.data.Todos) {
-        state.todos = json.data.Todos.filter(t => !t.user || t.user === activeUser);
+        state.todos = json.data.Todos.filter(t => (!t.user || t.user === activeUser) && (!t.id || !t.id.startsWith('td_demo_')));
         saveToStorage('todos', state.todos);
       }
       if (json.data.Notes) {
-        state.notes = json.data.Notes.filter(n => !n.user || n.user === activeUser);
+        state.notes = json.data.Notes.filter(n => (!n.user || n.user === activeUser) && (!n.id || !n.id.startsWith('nt_demo_')));
         saveToStorage('notes', state.notes);
       }
       if (json.data.StudyLogs) {
-        state.studyLogs = json.data.StudyLogs.filter(l => !l.user || l.user === activeUser);
+        state.studyLogs = json.data.StudyLogs.filter(l => (!l.user || l.user === activeUser) && (!l.id || !l.id.startsWith('lg_demo_')));
         saveToStorage('study_logs', state.studyLogs);
       }
       if (json.data.Schedule) {
-        state.schedule = json.data.Schedule.filter(s => !s.user || s.user === activeUser);
+        state.schedule = json.data.Schedule.filter(s => (!s.user || s.user === activeUser) && (!s.id || !['s1', 's2', 's3', 's4'].includes(s.id)));
         saveToStorage('schedule', state.schedule);
       }
       if (json.data.Goals) {
-        state.goals = json.data.Goals.filter(g => !g.user || g.user === activeUser);
+        state.goals = json.data.Goals.filter(g => (!g.user || g.user === activeUser) && (!g.id || !['g1', 'g2'].includes(g.id)));
         saveToStorage('goals', state.goals);
       }
       renderAll();
@@ -313,15 +309,35 @@ function renderWeeklyCapsuleChart() {
   if (!container) return;
   container.innerHTML = '';
 
-  const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-  days.forEach((day, idx) => {
-    const darkPct = [65, 40, 85, 20, 75, 45, 60][idx];
-    const limePct = [25, 20, 15, 10, 20, 30, 25][idx];
+  const dayLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+  const now = new Date();
+  const currentDayIdx = (now.getDay() + 6) % 7; // 0 for Monday, 6 for Sunday
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - currentDayIdx);
+
+  dayLabels.forEach((day, idx) => {
+    const targetDate = new Date(monday);
+    targetDate.setDate(monday.getDate() + idx);
+    const dateStr = targetDate.toISOString().split('T')[0];
+
+    // Minutes studied on this day
+    const dayMins = state.studyLogs
+      .filter(l => l.date === dateStr)
+      .reduce((sum, l) => sum + Number(l.duration_minutes || 0), 0);
+
+    // Completed tasks on this day
+    const dayTasks = state.todos
+      .filter(t => t.status === 'done' && (t.completed_at === dateStr || t.created_at === targetDate.toLocaleDateString('vi-VN')))
+      .length;
+
+    // Relative height percentages (3h target = 100%, 4 todos target = 100%)
+    const darkPct = dayMins > 0 ? Math.min(100, Math.round((dayMins / 180) * 100)) : 0;
+    const limePct = dayTasks > 0 ? Math.min(100, Math.round((dayTasks / 4) * 100)) : 0;
 
     const col = document.createElement('div');
     col.className = 'dual-bar-col';
     col.innerHTML = `
-      <div class="dual-capsule-track">
+      <div class="dual-capsule-track" title="${day} (${dateStr}): ${dayMins} phút học, ${dayTasks} việc xong">
         <div class="capsule-segment-dark" style="height: ${darkPct}%;"></div>
         <div class="capsule-segment-lime" style="height: ${limePct}%;"></div>
       </div>
@@ -336,16 +352,29 @@ function renderGoalsList() {
   if (!container) return;
   container.innerHTML = '';
 
+  if (state.goals.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 1.5rem 0;">
+        Chưa có mục tiêu nào. Nhấn <strong>+ Thêm mục tiêu</strong> để bắt đầu!
+      </div>
+    `;
+    return;
+  }
+
   state.goals.forEach(goal => {
-    const pct = Math.min(100, Math.round((goal.achieved / goal.target) * 100));
+    const pct = goal.target > 0 ? Math.min(100, Math.round((goal.achieved / goal.target) * 100)) : 0;
     const item = document.createElement('div');
     item.className = 'goal-item';
     item.innerHTML = `
       <div class="goal-info">
-        <span>${escapeHtml(goal.title)}</span>
-        <span>${goal.achieved}/${goal.target} ${goal.unit} (${pct}%)</span>
+        <span style="font-weight: 600;">${escapeHtml(goal.title)}</span>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 0.8rem; color: var(--text-muted);">${goal.achieved}/${goal.target} ${goal.unit} (${pct}%)</span>
+          <button class="btn-goal-inc" data-id="${goal.id}" title="Tăng +1 tiến độ" style="background: none; border: 1px solid var(--border-light); border-radius: 4px; padding: 1px 6px; cursor: pointer; color: var(--text-dark); font-size: 0.75rem;">+1</button>
+          <button class="btn-goal-del" data-id="${goal.id}" title="Xóa mục tiêu" style="background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.85rem;">✕</button>
+        </div>
       </div>
-      <div class="progress-track">
+      <div class="progress-track" style="margin-top: 0.4rem;">
         <div class="progress-fill" style="width: ${pct}%"></div>
       </div>
     `;
@@ -635,6 +664,14 @@ function renderStudyLogs() {
   const container = document.getElementById('studyLogsList');
   if (!container) return;
   container.innerHTML = '';
+  if (state.studyLogs.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 1.5rem 0;">
+        Chưa có phiên học nào. Bắt đầu bấm giờ hoặc ghi nhận phiên học ở trên!
+      </div>
+    `;
+    return;
+  }
   state.studyLogs.slice(0, 8).forEach(log => {
     const item = document.createElement('div');
     item.className = 'study-log-item';
@@ -643,6 +680,59 @@ function renderStudyLogs() {
       <span class="log-date">${log.date}</span>
     `;
     container.appendChild(item);
+  });
+}
+
+// Goals Event Handlers
+const btnAddGoal = document.getElementById('btnAddGoal');
+if (btnAddGoal) {
+  btnAddGoal.addEventListener('click', () => {
+    const title = prompt('Nhập tên mục tiêu (VD: Tự học 50 giờ, Đọc 5 cuốn sách):');
+    if (!title || !title.trim()) return;
+    const targetStr = prompt('Nhập số lượng mục tiêu cần đạt (VD: 50):', '50');
+    const target = parseFloat(targetStr) || 10;
+    const unit = prompt('Đơn vị (VD: giờ, việc, bài, cuốn):', 'giờ') || 'giờ';
+
+    const newGoal = {
+      id: 'gl_' + Date.now(),
+      user: activeUser,
+      title: title.trim(),
+      target,
+      achieved: 0,
+      unit: unit.trim()
+    };
+    state.goals.push(newGoal);
+    saveToStorage('goals', state.goals);
+    renderGoalsList();
+    sendToSheet('append', 'Goals', { data: newGoal });
+  });
+}
+
+const goalsList = document.getElementById('goalsList');
+if (goalsList) {
+  goalsList.addEventListener('click', (e) => {
+    const incBtn = e.target.closest('.btn-goal-inc');
+    if (incBtn) {
+      const id = incBtn.dataset.id;
+      const g = state.goals.find(item => item.id === id);
+      if (g) {
+        g.achieved = Math.min(g.target, Number(g.achieved || 0) + 1);
+        saveToStorage('goals', state.goals);
+        renderGoalsList();
+        sendToSheet('update_status', 'Goals', { id, achieved: g.achieved });
+      }
+      return;
+    }
+    const delBtn = e.target.closest('.btn-goal-del');
+    if (delBtn) {
+      const id = delBtn.dataset.id;
+      if (confirm('Xóa mục tiêu này?')) {
+        state.goals = state.goals.filter(item => item.id !== id);
+        saveToStorage('goals', state.goals);
+        renderGoalsList();
+        sendToSheet('delete', 'Goals', { id });
+      }
+    }
   });
 }
 
@@ -737,6 +827,27 @@ document.getElementById('btnSyncNow').addEventListener('click', () => {
   localStorage.setItem(getUserKey('api_url'), state.apiUrl);
   fetchAllFromSheet();
 });
+
+const btnPurge = document.getElementById('btnPurgeDataModal');
+if (btnPurge) {
+  btnPurge.addEventListener('click', () => {
+    if (confirm('Bạn có chắc muốn xóa toàn bộ dữ liệu mẫu/rác để bắt đầu với trang hoàn toàn sạch sẽ không?')) {
+      ['sun', 'icarus', 'default'].forEach(u => {
+        ['todos', 'notes', 'study_logs', 'goals', 'schedule'].forEach(key => {
+          localStorage.removeItem(`ph_${u}_${key}`);
+        });
+      });
+      state.todos = [];
+      state.notes = [];
+      state.studyLogs = [];
+      state.goals = [];
+      state.schedule = [];
+      renderAll();
+      settingsModal.classList.add('hidden');
+      alert('Đã dọn dẹp sạch toàn bộ dữ liệu rác! Bảng của bạn hiện tại mới 100%.');
+    }
+  });
+}
 
 // -------------------------------------------------------------
 // DUAL-MODE ARTISTIC GATEWAY CONTROLLER

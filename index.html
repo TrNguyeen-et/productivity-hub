@@ -148,12 +148,14 @@ body {
   align-items: center;
   justify-content: center;
   margin-right: 0.35rem;
-  color: currentColor;
+  color: inherit;
 }
 .user-pill-svg svg {
   width: 17px;
   height: 17px;
   display: block;
+  stroke: currentColor;
+  fill: none;
 }
 .btn-pill-light {
   background: #ffffff; color: var(--text-dark);
@@ -721,7 +723,7 @@ body.dark-mode .lvl-4 { background: #68e870; }
 
             <!-- User Profile Switch Button -->
             <button id="btnSwitchUserHeader" class="btn-pill btn-pill-outline" title="Chuyển người dùng (Sun / Icarus)">
-              <span id="currentUserIcon" class="user-pill-svg"></span>
+              <span id="currentUserIcon" class="user-pill-svg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M5.5 21v-2a5 5 0 0 1 10 0v2"/><path d="M16 6.5c1.8 1.2 2.8 3.2 2.2 5.5s-2.2 3.5-3.7 3.5"/></svg></span>
               <span id="currentUserLabel">Sun (P1)</span>
             </button>
 
@@ -1033,6 +1035,13 @@ body.dark-mode .lvl-4 { background: #68e870; }
       <div class="modal-foot">
         <button id="btnSyncNow" class="btn-pill btn-pill-outline">Tải lại từ Sheet</button>
         <button id="btnSaveApiUrl" class="btn-pill btn-pill-dark">Lưu kết nối</button>
+      </div>
+
+      <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 0.8rem; color: var(--text-muted);">Dọn dẹp bảng:</span>
+        <button id="btnPurgeDataModal" class="btn-pill btn-sm" style="background: none; border: 1px solid #ef4444; color: #ef4444; cursor: pointer;">
+          Xóa sạch dữ liệu mẫu (Reset rác)
+        </button>
       </div>
     </div>
   </div>

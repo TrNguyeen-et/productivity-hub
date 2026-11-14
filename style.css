@@ -483,12 +483,14 @@ body {
   align-items: center;
   justify-content: center;
   margin-right: 0.35rem;
-  color: currentColor;
+  color: inherit;
 }
 .user-pill-svg svg {
   width: 17px;
   height: 17px;
   display: block;
+  stroke: currentColor;
+  fill: none;
 }
 
 .btn-pill-light {
