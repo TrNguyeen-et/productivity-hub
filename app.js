@@ -588,7 +588,7 @@ function stopSilentAudio() {
 
 function updateMediaSession() {
   if (!('mediaSession' in navigator)) return;
-  const modeName = timerMode === 'pomodoro' ? '🍅 Pomodoro' : '📖 Tự học';
+  const modeName = timerMode === 'pomodoro' ? 'Pomodoro' : 'Tự học';
   const timeStr = timerDisplay ? timerDisplay.innerText : '00:00';
 
   try {
@@ -653,11 +653,10 @@ function initMediaSessionHandlers() {
 }
 initMediaSessionHandlers();
 
-// Picture-in-Picture (Cửa sổ nổi PiP) cho iPad / Điện thoại
+// Picture-in-Picture (Cửa sổ nổi tự động khi out trình duyệt) cho iPad / Điện thoại
 let pipCanvas = null;
 let pipCtx = null;
 let pipVideo = null;
-const btnTogglePip = document.getElementById('btnTogglePip');
 
 function initPipVideo() {
   if (pipVideo) return;
@@ -670,7 +669,17 @@ function initPipVideo() {
   pipVideo.muted = true;
   pipVideo.autoplay = true;
   pipVideo.playsInline = true;
-  pipVideo.style.display = 'none';
+  pipVideo.setAttribute('playsinline', '');
+  pipVideo.setAttribute('autoplay', '');
+  pipVideo.setAttribute('muted', '');
+  pipVideo.setAttribute('autopictureinpicture', '');
+  pipVideo.autoPictureInPicture = true;
+  pipVideo.style.position = 'fixed';
+  pipVideo.style.opacity = '0';
+  pipVideo.style.pointerEvents = 'none';
+  pipVideo.style.width = '1px';
+  pipVideo.style.height = '1px';
+  pipVideo.style.left = '-9999px';
   document.body.appendChild(pipVideo);
 
   if (pipCanvas.captureStream) {
@@ -692,29 +701,33 @@ function renderPipCanvas() {
 
   pipCtx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   pipCtx.fillStyle = timerMode === 'pomodoro' ? '#ef4444' : '#10b981';
-  const label = timerMode === 'pomodoro' ? '🍅 Pomodoro' : '📖 I wanna be better';
+  const label = timerMode === 'pomodoro' ? 'Pomodoro' : 'I wanna be better';
   pipCtx.fillText(label, pipCanvas.width / 2, pipCanvas.height / 2 + 50);
 }
 
-if (btnTogglePip) {
-  btnTogglePip.addEventListener('click', async () => {
-    initPipVideo();
-    renderPipCanvas();
+// Tự động mở PiP khi out trình duyệt
+async function autoEnterPip() {
+  if (!timerRunning) return;
+  initPipVideo();
+  renderPipCanvas();
 
+  if (!document.pictureInPictureElement && pipVideo && pipVideo.requestPictureInPicture) {
     try {
-      if (document.pictureInPictureElement) {
-        await document.exitPictureInPicture();
-      } else if (pipVideo && pipVideo.requestPictureInPicture) {
-        await pipVideo.play();
-        await pipVideo.requestPictureInPicture();
-      } else {
-        alert('Trình duyệt hoặc thiết bị chưa hỗ trợ tính năng Cửa sổ nổi PiP.');
-      }
-    } catch (err) {
-      console.warn('PiP error:', err);
-      alert('Để mở cửa sổ nổi PiP, hãy bấm Bắt đầu học trước rồi bấm lại nút này.');
+      await pipVideo.play();
+      await pipVideo.requestPictureInPicture();
+    } catch (e) {
+      // Browser auto PiP fallback
     }
-  });
+  }
+}
+
+// Đóng PiP khi phiên học kết thúc
+async function autoExitPip() {
+  if (document.pictureInPictureElement) {
+    try {
+      await document.exitPictureInPicture();
+    } catch (e) {}
+  }
 }
 
 const timerDisplay = document.getElementById('timerDisplay');
@@ -767,6 +780,7 @@ function resetToIdle() {
   pendingElapsedMinutes = 0;
 
   stopSilentAudio();
+  autoExitPip();
   updateTimerDisplay();
   renderPipCanvas();
 
@@ -839,6 +853,11 @@ if (btnStartStopwatch) {
 
     updateTimerDisplay();
     playSilentAudio();
+
+    // Khởi tạo video PiP sẵn sàng tự động bật khi out trình duyệt
+    initPipVideo();
+    renderPipCanvas();
+    if (pipVideo) pipVideo.play().catch(() => {});
 
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
@@ -927,7 +946,7 @@ if (btnStopwatchCancel) {
   });
 }
 
-// 2. Chế độ POMODORO ĐẾM NGƯỢC 25m (Bấm "🍅 Pomodoro")
+// 2. Chế độ POMODORO ĐẾM NGƯỢC 25m (Bấm "Pomodoro")
 if (btnStartPomodoro) {
   btnStartPomodoro.addEventListener('click', () => {
     timerMode = 'pomodoro';
@@ -937,6 +956,11 @@ if (btnStartPomodoro) {
 
     updateTimerDisplay();
     playSilentAudio();
+
+    // Khởi tạo video PiP sẵn sàng tự động bật khi out trình duyệt
+    initPipVideo();
+    renderPipCanvas();
+    if (pipVideo) pipVideo.play().catch(() => {});
 
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
@@ -1080,12 +1104,28 @@ if (btnCancelUrgentModal) btnCancelUrgentModal.addEventListener('click', () => {
   resetToIdle();
 });
 
-// Resilient iPad Handler: Never freezes when tab is in background or iPad screen locked!
+// Tự động kích hoạt Cửa sổ nổi (PiP) khi out trình duyệt hoặc đổi app
 document.addEventListener('visibilitychange', () => {
   if (timerRunning) {
     tickTimer();
+    if (document.hidden) {
+      autoEnterPip();
+    }
   }
 });
+
+window.addEventListener('pagehide', () => {
+  if (timerRunning) {
+    autoEnterPip();
+  }
+});
+
+window.addEventListener('blur', () => {
+  if (timerRunning) {
+    autoEnterPip();
+  }
+});
+
 window.addEventListener('focus', () => {
   if (timerRunning) {
     tickTimer();
