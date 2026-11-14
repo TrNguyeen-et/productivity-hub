@@ -564,8 +564,10 @@ const btnStartStopwatch = document.getElementById('btnStartStopwatch');
 const btnStartPomodoro = document.getElementById('btnStartPomodoro');
 const btnStopwatchPause = document.getElementById('btnStopwatchPause');
 const btnStopwatchFinish = document.getElementById('btnStopwatchFinish');
+const btnStopwatchCancel = document.getElementById('btnStopwatchCancel');
 const btnPomodoroGiveUp = document.getElementById('btnPomodoroGiveUp');
 const btnPomodoroUrgent = document.getElementById('btnPomodoroUrgent');
+const btnPomodoroCancel = document.getElementById('btnPomodoroCancel');
 
 // Modals
 const finishSessionModal = document.getElementById('finishSessionModal');
@@ -627,16 +629,25 @@ function tickTimer() {
     if (timerSeconds <= 0) {
       clearInterval(timerInterval);
       timerRunning = false;
-      alert('🔔 Chúc mừng! Bạn đã hoàn thành trọn vẹn phiên Pomodoro 25 phút!');
-      pendingElapsedMinutes = 25;
       
-      if (finishModalDurationDesc) {
-        finishModalDurationDesc.innerHTML = `Chúc mừng bạn đã hoàn thành trọn vẹn: <strong>25 phút</strong> Pomodoro!`;
-      }
-      if (finishSubjectInput) finishSubjectInput.value = 'Pomodoro';
-      if (finishNotesInput) finishNotesInput.value = 'Hoàn thành trọn vẹn 25 phút';
-      if (finishSessionModal) finishSessionModal.classList.remove('hidden');
-      if (finishSubjectInput) finishSubjectInput.focus();
+      const newLog = {
+        id: 'lg_' + Date.now(),
+        user: activeUser,
+        subject: 'Pomodoro',
+        duration_minutes: 25,
+        date: new Date().toISOString().split('T')[0],
+        notes: 'Hoàn thành trọn vẹn 25 phút Pomodoro'
+      };
+
+      state.studyLogs.unshift(newLog);
+      saveToStorage('study_logs', state.studyLogs);
+      renderStudyLogs();
+      renderDashboard();
+
+      sendToSheet('append', 'StudyLogs', { data: newLog });
+      resetToIdle();
+
+      alert('🔔 Chúc mừng! Bạn đã hoàn thành trọn vẹn 25 phút Pomodoro (Đã tự động lưu vào lịch sử học tập)!');
     }
   }
 }
@@ -683,7 +694,7 @@ if (btnStopwatchPause) {
   });
 }
 
-// Nút Kết thúc đếm xuôi -> Hiện bảng điền đã học gì
+// Nút Kết thúc đếm xuôi -> Tự động lưu thời gian đã học vào lịch sử & Sheet
 if (btnStopwatchFinish) {
   btnStopwatchFinish.addEventListener('click', () => {
     // Dừng timer
@@ -694,22 +705,42 @@ if (btnStopwatchFinish) {
     timerRunning = false;
     lastResumeTimestamp = null;
 
-    const totalSec = stopwatchAccumulatedSec || timerSeconds;
-    if (totalSec < 5) {
-      alert('Phiên học mới diễn ra vài giây, chưa đủ thời gian ghi nhận (tối thiểu 1 phút).');
+    const totalSec = stopwatchAccumulatedSec || timerSeconds || 0;
+    if (totalSec <= 0) {
       resetToIdle();
       return;
     }
 
-    pendingElapsedMinutes = Math.max(1, Math.round(totalSec / 60));
+    // Tự động tính số phút đã học (nếu dưới 60s tính là 1 phút, ghi rõ số giây trong notes)
+    const durationMinutes = totalSec < 60 ? 1 : Math.max(1, Math.round(totalSec / 60));
+    const timeNote = totalSec < 60 ? `Tự học ${totalSec}s` : `Phiên học ${durationMinutes} phút`;
 
-    if (finishModalDurationDesc) {
-      finishModalDurationDesc.innerHTML = `Khoảng thời gian đã học: <strong>${pendingElapsedMinutes} phút</strong> (${totalSec} giây)`;
-    }
-    if (finishSubjectInput) finishSubjectInput.value = '';
-    if (finishNotesInput) finishNotesInput.value = '';
-    if (finishSessionModal) finishSessionModal.classList.remove('hidden');
-    if (finishSubjectInput) finishSubjectInput.focus();
+    const newLog = {
+      id: 'lg_' + Date.now(),
+      user: activeUser,
+      subject: 'Tự học',
+      duration_minutes: durationMinutes,
+      date: new Date().toISOString().split('T')[0],
+      notes: timeNote
+    };
+
+    // Tự động lưu ngay lập tức
+    state.studyLogs.unshift(newLog);
+    saveToStorage('study_logs', state.studyLogs);
+    renderStudyLogs();
+    renderDashboard();
+
+    sendToSheet('append', 'StudyLogs', { data: newLog });
+    resetToIdle();
+
+    alert(`🎉 Đã tự động lưu phiên học: ${durationMinutes} phút (${totalSec < 60 ? totalSec + 's' : durationMinutes + ' phút'}) vào lịch sử học tập!`);
+  });
+}
+
+// Nút Huỷ kết quả đếm xuôi -> Không lưu gì cả, trở về 00:00
+if (btnStopwatchCancel) {
+  btnStopwatchCancel.addEventListener('click', () => {
+    resetToIdle();
   });
 }
 
@@ -728,6 +759,13 @@ if (btnStartPomodoro) {
     if (timerActionPomodoro) timerActionPomodoro.classList.remove('hidden');
 
     timerInterval = setInterval(tickTimer, 1000);
+  });
+}
+
+// Nút Huỷ phiên Pomodoro -> Không lưu, trở về 00:00
+if (btnPomodoroCancel) {
+  btnPomodoroCancel.addEventListener('click', () => {
+    resetToIdle();
   });
 }
 
@@ -881,12 +919,13 @@ function renderStudyLogs() {
     return;
   }
 
-  state.studyLogs.slice(0, 10).forEach(log => {
+  state.studyLogs.slice(0, 15).forEach(log => {
     const item = document.createElement('div');
     item.className = `study-log-item ${log.abandoned ? 'abandoned-item' : ''}`;
 
+    let mainHtml = '';
     if (log.abandoned) {
-      item.innerHTML = `
+      mainHtml = `
         <div style="display: flex; align-items: center; gap: 0.65rem;">
           <span class="badge-give-up" title="Bỏ cuộc">!</span>
           <div>
@@ -895,10 +934,9 @@ function renderStudyLogs() {
             <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">${escapeHtml(log.notes || 'Bỏ cuộc')}</div>
           </div>
         </div>
-        <span class="log-date">${log.date}</span>
       `;
     } else if (log.has_urgent_reason) {
-      item.innerHTML = `
+      mainHtml = `
         <div>
           <div style="display: flex; align-items: center; gap: 0.4rem;">
             <span style="color: #f59e0b; font-size: 0.95rem;">⚡</span>
@@ -909,20 +947,45 @@ function renderStudyLogs() {
             Lý do: <em>${escapeHtml(log.notes || 'Có việc gấp')}</em>
           </div>
         </div>
-        <span class="log-date">${log.date}</span>
       `;
     } else {
-      item.innerHTML = `
+      mainHtml = `
         <div>
-          <strong>${escapeHtml(log.subject)}</strong>
+          <strong>${escapeHtml(log.subject || 'Tự học')}</strong>
           <span style="font-size: 0.82rem; color: var(--text-muted);">· ${log.duration_minutes} phút</span>
           ${log.notes ? `<div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">${escapeHtml(log.notes)}</div>` : ''}
         </div>
-        <span class="log-date">${log.date}</span>
       `;
     }
 
+    item.innerHTML = `
+      ${mainHtml}
+      <div style="display: flex; align-items: center; gap: 0.65rem;">
+        <span class="log-date">${log.date || ''}</span>
+        <button class="btn-delete-study-log" data-id="${log.id}" title="Xoá phiên học này" style="background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1.1rem; padding: 0 4px; border-radius: 4px; line-height: 1;">×</button>
+      </div>
+    `;
+
     container.appendChild(item);
+  });
+}
+
+// Bắt sự kiện xoá phiên học
+const studyLogsListElem = document.getElementById('studyLogsList');
+if (studyLogsListElem) {
+  studyLogsListElem.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn-delete-study-log');
+    if (!btn) return;
+    const logId = btn.getAttribute('data-id');
+    if (!logId) return;
+
+    if (confirm('Bạn có chắc muốn xoá phiên học này khỏi lịch sử không?')) {
+      state.studyLogs = state.studyLogs.filter(l => l.id !== logId);
+      saveToStorage('study_logs', state.studyLogs);
+      renderStudyLogs();
+      renderDashboard();
+      sendToSheet('delete', 'StudyLogs', { id: logId });
+    }
   });
 }
 

@@ -943,16 +943,18 @@ body.dark-mode .lvl-4 { background: #68e870; }
                   <button id="btnStartPomodoro" class="btn-pill btn-pill-outline btn-pill-lg">🍅 Pomodoro</button>
                 </div>
 
-                <!-- 2. Trạng thái Đang đếm xuôi: Nút Tạm dừng & Kết thúc -->
+                <!-- 2. Trạng thái Đang đếm xuôi: Nút Tạm dừng, Kết thúc & Huỷ kết quả -->
                 <div id="timerActionStopwatch" class="timer-action-row hidden">
                   <button id="btnStopwatchPause" class="btn-pill btn-pill-dark btn-pill-lg">⏸ Tạm dừng</button>
-                  <button id="btnStopwatchFinish" class="btn-pill btn-pill-outline btn-pill-lg">⏹ Kết thúc</button>
+                  <button id="btnStopwatchFinish" class="btn-pill btn-pill-dark btn-pill-lg" title="Kết thúc và tự động lưu thời gian đã học">⏹ Kết thúc</button>
+                  <button id="btnStopwatchCancel" class="btn-pill btn-pill-outline btn-pill-lg" title="Huỷ phiên học, không lưu kết quả">✕ Huỷ kết quả</button>
                 </div>
 
-                <!-- 3. Trạng thái Đang chạy Pomodoro: Nút Bỏ cuộc & Có việc gấp -->
+                <!-- 3. Trạng thái Đang chạy Pomodoro: Nút Bỏ cuộc, Có việc gấp & Huỷ phiên -->
                 <div id="timerActionPomodoro" class="timer-action-row hidden">
-                  <button id="btnPomodoroGiveUp" class="btn-pill btn-pill-danger btn-pill-lg" title="Bỏ cuộc phiên Pomodoro">⚠️ Bỏ cuộc</button>
-                  <button id="btnPomodoroUrgent" class="btn-pill btn-pill-warning btn-pill-lg" title="Tạm dừng do có việc gấp">⚡ Có việc gấp</button>
+                  <button id="btnPomodoroGiveUp" class="btn-pill btn-pill-danger btn-pill-lg" title="Bỏ cuộc phiên Pomodoro (đưa vào lịch sử với dấu !)">⚠️ Bỏ cuộc</button>
+                  <button id="btnPomodoroUrgent" class="btn-pill btn-pill-warning btn-pill-lg" title="Tạm dừng do có việc gấp (lưu lý do)">⚡ Có việc gấp</button>
+                  <button id="btnPomodoroCancel" class="btn-pill btn-pill-outline btn-pill-lg" title="Huỷ phiên Pomodoro không lưu">✕ Huỷ phiên</button>
                 </div>
 
                 <div class="study-history mt-6">
