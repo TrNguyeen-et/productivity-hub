@@ -289,7 +289,14 @@ body.dark-mode .btn-pill-light {
 .mode-pill { border: none; background: transparent; padding: 0.5rem 1rem; border-radius: var(--radius-pill); font-size: 0.85rem; font-weight: 700; cursor: pointer; color: var(--text-muted); }
 .mode-pill.active { background: #ffffff; color: var(--text-dark); box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
 .timer-clock-display { font-size: 5.5rem; font-weight: 800; letter-spacing: -3px; color: var(--text-dark); font-variant-numeric: tabular-nums; margin-bottom: 1.5rem; }
-.timer-action-row { display: flex; justify-content: center; gap: 1rem; }
+.timer-subject-bar { display: flex; align-items: center; justify-content: center; gap: 0.65rem; margin: -0.5rem auto 1.5rem auto; max-width: 440px; width: 100%; }
+.timer-subject-label { font-weight: 700; font-size: 0.95rem; color: var(--text-dark); white-space: nowrap; }
+.timer-subject-input { flex: 1; font-family: inherit; font-size: 0.95rem; padding: 0.55rem 1rem; border: 1px solid var(--border-light); border-radius: var(--radius-pill); outline: none; background: #ffffff; color: var(--text-dark); text-align: center; }
+.timer-subject-input:focus { border-color: #18181b; box-shadow: 0 0 0 2px rgba(24, 24, 27, 0.08); }
+.timer-action-row { display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap; }
+.manual-log-row { display: flex; align-items: center; justify-content: center; gap: 0.65rem; flex-wrap: wrap; }
+.manual-log-label { font-weight: 700; font-size: 0.9rem; color: var(--text-dark); white-space: nowrap; }
+.manual-log-row input { font-family: inherit; font-size: 0.9rem; padding: 0.55rem 0.85rem; border: 1px solid var(--border-light); border-radius: 12px; outline: none; background: #ffffff; color: var(--text-dark); }
 .input-inline-group { display: flex; gap: 0.75rem; margin-top: 0.75rem; }
 .input-inline-group input, .todo-create-bar input, .note-composer input, .note-composer textarea, .schedule-composer input, .modal-input {
   font-family: inherit; font-size: 0.92rem; padding: 0.65rem 1rem; border: 1px solid var(--border-light); border-radius: 12px; outline: none; width: 100%; background: #ffffff;
@@ -582,6 +589,8 @@ body.dark-mode .btn-pill-dark { background: #f3f4f6; color: #121316; }
 body.dark-mode .btn-pill-dark:hover { background: #ffffff; }
 body.dark-mode .sync-pill-badge { background: #1e2026; border-color: #2d3039; }
 body.dark-mode .input-inline-group input,
+body.dark-mode .timer-subject-input,
+body.dark-mode .manual-log-row input,
 body.dark-mode .todo-create-bar input,
 body.dark-mode .note-composer input,
 body.dark-mode .note-composer textarea,
@@ -901,18 +910,26 @@ body.dark-mode .lvl-4 { background: #68e870; }
                   <button class="mode-pill" data-mode="stopwatch">Bấm giờ tự do</button>
                 </div>
 
+                <!-- Dòng điền "Đang học gì đấy" trước khi học -->
+                <div class="timer-subject-bar">
+                  <span class="timer-subject-label">Đang học :</span>
+                  <input type="text" id="timerSubject" class="timer-subject-input" placeholder="Điền môn học hoặc việc cần làm..." autocomplete="off">
+                </div>
+
                 <div class="timer-clock-display" id="timerDisplay">25:00</div>
 
                 <div class="timer-action-row">
                   <button id="btnTimerToggle" class="btn-pill btn-pill-dark btn-pill-lg">Bắt đầu học</button>
+                  <button id="btnTimerFinish" class="btn-pill btn-pill-dark btn-pill-lg" title="Kết thúc phiên và tự động lưu vào lịch sử & Sheet">Kết thúc</button>
                   <button id="btnTimerReset" class="btn-pill btn-pill-outline btn-pill-lg">Đặt lại</button>
                 </div>
 
                 <div class="study-log-card mt-4">
-                  <h3>Ghi nhận phiên học vào Sheet</h3>
-                  <div class="input-inline-group">
-                    <input type="text" id="logSubject" placeholder="Tên môn học (VD: Toán, Lập trình React)">
-                    <input type="number" id="logMinutes" placeholder="Số phút" min="1" style="max-width: 120px;">
+                  <div class="manual-log-row">
+                    <span class="manual-log-label">Đang học :</span>
+                    <input type="text" id="logSubject" placeholder="Điền môn học..." style="flex: 1; min-width: 140px;">
+                    <span class="manual-log-label">Thời gian :</span>
+                    <input type="number" id="logMinutes" placeholder="Số phút" min="1" style="max-width: 95px;">
                     <button id="btnSaveLog" class="btn-pill btn-pill-dark">Lưu phiên</button>
                   </div>
                 </div>
