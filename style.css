@@ -411,21 +411,25 @@ body {
 }
 
 .kpi-big-number {
-  font-size: 2.85rem;
+  font-size: 2.75rem;
   font-weight: 800;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.02em;
   color: var(--text-dark);
   line-height: 1;
-  margin: 0.75rem 0 1rem;
+  margin: 0.85rem 0 1rem;
   display: flex;
   align-items: baseline;
-  gap: 0.35rem;
+  gap: 0.5rem;
 }
 
 .kpi-unit {
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-muted);
+  letter-spacing: 0;
+  word-spacing: 0.12rem;
+  white-space: nowrap;
+  margin-left: 0.25rem;
 }
 
 /* Segmented Capsule Bar (From reference photo) */
@@ -911,6 +915,67 @@ body {
 .mt-3 { margin-top: 1rem; }
 .mt-4 { margin-top: 1.5rem; }
 .hidden { display: none !important; }
+
+/* -------------------------------------------------------------
+   DARK MODE THEME
+   ------------------------------------------------------------- */
+body.dark-mode {
+  --bg-canvas: #0c0d10;
+  --bg-frame: #18191e;
+  --bg-dark: #101114;
+  --bg-card: #202229;
+  --text-dark: #f3f4f6;
+  --text-muted: #9ca3af;
+  --border-light: #2d3039;
+  --border-subtle: #252730;
+  --pastel-blue-soft: #1e2638;
+  --pastel-lime-soft: #232b1a;
+  --shadow-frame: 0 25px 60px -15px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 4px 16px -2px rgba(0, 0, 0, 0.25);
+}
+body.dark-mode .app-frame { border-color: rgba(255, 255, 255, 0.08); }
+body.dark-mode .card-blue-soft { border-color: #2b3752; }
+body.dark-mode .card-blue-soft .kpi-percent { background: rgba(255, 255, 255, 0.1); color: #bfdbfe; }
+body.dark-mode .card-lime-soft { border-color: #384626; }
+body.dark-mode .card-lime-soft .kpi-percent { background: rgba(255, 255, 255, 0.1); color: #d9f99d; }
+body.dark-mode .card-lime-soft .capsule-fill.active { background: #d9f99d; }
+body.dark-mode .capsule-fill { background: rgba(255, 255, 255, 0.1); }
+body.dark-mode .card-dark-promo { background: #111215; border: 1px solid #272830; }
+body.dark-mode .card-white { background: #1e2026; border-color: #2d3039; }
+body.dark-mode .btn-pill-outline { background: #1e2026; color: #f3f4f6; border-color: #2d3039; }
+body.dark-mode .btn-pill-outline:hover { background: #272a33; }
+body.dark-mode .btn-pill-dark { background: #f3f4f6; color: #121316; }
+body.dark-mode .btn-pill-dark:hover { background: #ffffff; }
+body.dark-mode .sync-pill-badge { background: #1e2026; border-color: #2d3039; }
+body.dark-mode .input-inline-group input,
+body.dark-mode .todo-create-bar input,
+body.dark-mode .note-composer input,
+body.dark-mode .note-composer textarea,
+body.dark-mode .schedule-composer input,
+body.dark-mode .modal-input,
+body.dark-mode .select-pill {
+  background: #18191e; border-color: #2d3039; color: #f3f4f6;
+}
+body.dark-mode .stylish-todo-item { background: #202229; border-color: #2d3039; }
+body.dark-mode .stylish-todo-item.done { background: #18191e; opacity: 0.45; }
+body.dark-mode .note-box { background: #202229; border-color: #2d3039; }
+body.dark-mode .day-slot-card { background: #202229; border-color: #2d3039; }
+body.dark-mode .day-slot-card h3 { border-color: #2d3039; }
+body.dark-mode .modal-pill-box { background: #1e2026; color: #f3f4f6; border: 1px solid #2d3039; }
+body.dark-mode .btn-close { color: #f3f4f6; }
+body.dark-mode .prio-Bình-thường { background: #2d3039; color: #d1d5db; }
+body.dark-mode .timer-mode-pills { background: #18191e; }
+body.dark-mode .mode-pill.active { background: #272a33; color: #ffffff; }
+body.dark-mode .goal-item { background: #202229; border-color: #2d3039; }
+body.dark-mode .progress-track { background: #2d3039; }
+body.dark-mode .progress-fill { background: #d9f99d; }
+body.dark-mode .dual-capsule-track { background: #272a33; }
+body.dark-mode .capsule-segment-dark { background: #f3f4f6; }
+body.dark-mode .lvl-0 { background: #272a33; }
+body.dark-mode .lvl-1 { background: #1e4620; }
+body.dark-mode .lvl-2 { background: #2e7a33; }
+body.dark-mode .lvl-3 { background: #46b44c; }
+body.dark-mode .lvl-4 { background: #68e870; }
 
 /* Responsive on iPad & Mobile */
 @media (max-width: 992px) {
