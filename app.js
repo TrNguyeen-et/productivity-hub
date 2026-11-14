@@ -1,4 +1,4 @@
-// Productivity Hub - Local-First & Optimistic UI Engine
+// Productivity Hub - Design 2.0 & GitHub-Style Activity Tracker Engine
 const STORAGE_KEYS = {
   API_URL: 'ph_api_url',
   TODOS: 'ph_todos',
@@ -8,7 +8,7 @@ const STORAGE_KEYS = {
   SCHEDULE: 'ph_schedule'
 };
 
-// Initial App State from LocalStorage
+// State
 let state = {
   apiUrl: localStorage.getItem(STORAGE_KEYS.API_URL) || '',
   todos: JSON.parse(localStorage.getItem(STORAGE_KEYS.TODOS) || '[]'),
@@ -18,54 +18,71 @@ let state = {
   schedule: JSON.parse(localStorage.getItem(STORAGE_KEYS.SCHEDULE) || '[]')
 };
 
-// Seed initial default demo data if empty
+function saveToStorage(key, data) {
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+// Seed Demo data if empty
 function seedDemoData() {
   if (state.goals.length === 0) {
     state.goals = [
-      { id: 'g1', title: 'Hoàn thành 30 giờ tự học tháng này', target: 30, achieved: 6, unit: 'giờ' },
-      { id: 'g2', title: 'Hoàn thành 50 bài tập Todo', target: 50, achieved: 12, unit: 'việc' }
+      { id: 'g1', title: 'Hoàn thành 30 giờ tự học tháng này', target: 30, achieved: 12, unit: 'giờ' },
+      { id: 'g2', title: 'Hoàn thành 50 bài tập Todo', target: 50, achieved: 28, unit: 'việc' }
     ];
     saveToStorage(STORAGE_KEYS.GOALS, state.goals);
   }
   if (state.schedule.length === 0) {
     state.schedule = [
-      { id: 's1', day: 'Thứ 2', start_time: '08:00', end_time: '11:00', activity: 'Lập trình Web', type: 'Học' },
-      { id: 's2', day: 'Thứ 2', start_time: '14:00', end_time: '17:00', activity: 'Tự do đọc sách / Thư giãn', type: 'Rảnh' },
-      { id: 's3', day: 'Thứ 4', start_time: '19:30', end_time: '21:30', activity: 'Ôn tập tiếng Anh', type: 'Học' }
+      { id: 's1', day: 'Thứ 2', start_time: '08:00', end_time: '11:00', activity: 'Lập trình Web & Git', type: 'Học' },
+      { id: 's2', day: 'Thứ 2', start_time: '14:00', end_time: '16:30', activity: 'Đọc sách / Nghỉ ngơi', type: 'Rảnh' },
+      { id: 's3', day: 'Thứ 4', start_time: '19:30', end_time: '21:30', activity: 'Tiếng Anh giao tiếp', type: 'Học' },
+      { id: 's4', day: 'Thứ 6', start_time: '14:00', end_time: '17:00', activity: 'Toán cao cấp', type: 'Học' }
     ];
     saveToStorage(STORAGE_KEYS.SCHEDULE, state.schedule);
   }
-}
-
-// Save helpers
-function saveToStorage(key, data) {
-  localStorage.setItem(key, JSON.stringify(data));
+  // Add some demo study logs across recent days to make heatmap beautiful
+  if (state.studyLogs.length === 0) {
+    const today = new Date();
+    const demoOffsets = [0, 1, 2, 4, 6, 8, 10, 13, 15, 20, 22, 25];
+    demoOffsets.forEach(offset => {
+      const d = new Date(today);
+      d.setDate(d.getDate() - offset);
+      const dateStr = d.toISOString().split('T')[0];
+      state.studyLogs.push({
+        id: 'lg_demo_' + offset,
+        subject: offset % 2 === 0 ? 'Toán học' : 'Lập trình',
+        duration_minutes: 45 + (offset * 12) % 90,
+        date: dateStr,
+        notes: ''
+      });
+    });
+    saveToStorage(STORAGE_KEYS.STUDY_LOGS, state.studyLogs);
+  }
 }
 
 // -------------------------------------------------------------
-// SYNC ENGINE (OPTIMISTIC UI - BACKGROUND QUEUE)
+// SYNC ENGINE (OPTIMISTIC UI - BACKGROUND NON-BLOCKING)
 // -------------------------------------------------------------
 const syncBadge = document.getElementById('syncBadge');
 const syncText = document.getElementById('syncText');
 
 function updateSyncUI(status, message) {
-  syncBadge.className = `sync-badge ${status}`;
+  if (!syncBadge || !syncText) return;
+  syncBadge.className = `sync-pill-badge ${status}`;
   syncText.innerText = message;
 }
 
 if (!state.apiUrl) {
   updateSyncUI('idle', 'Cục bộ (Chưa nối Sheet)');
 } else {
-  updateSyncUI('synced', 'Đã kết nối Sheet');
+  updateSyncUI('synced', 'Đã đồng bộ');
 }
 
-// Background sync to Google Sheets (Non-blocking with no-cors)
 async function sendToSheet(action, sheet, payload) {
   if (!state.apiUrl) return;
 
   updateSyncUI('syncing', 'Đang lưu lên Sheet...');
   try {
-    // mode: 'no-cors' allows browser to send POST to Google Apps Script without CORS redirect error
     await fetch(state.apiUrl, {
       method: 'POST',
       mode: 'no-cors',
@@ -79,7 +96,6 @@ async function sendToSheet(action, sheet, payload) {
   }
 }
 
-// Pull all data from Google Sheets
 async function fetchAllFromSheet() {
   if (!state.apiUrl) {
     alert('Vui lòng nhập link Web App URL trong mục Cài đặt trước!');
@@ -116,67 +132,197 @@ async function fetchAllFromSheet() {
     }
   } catch (err) {
     console.error(err);
-    updateSyncUI('error', 'Lỗi khi tải từ Sheet');
-    alert('Không thể kết nối Google Apps Script. Kiểm tra quyền truy cập (Chọn "Anyone").');
+    updateSyncUI('error', 'Lỗi kết nối Sheet');
   }
 }
 
 // -------------------------------------------------------------
-// TAB NAVIGATION
+// NAVIGATION (Both Sidebar and Top Pills)
 // -------------------------------------------------------------
-const tabButtons = document.querySelectorAll('.tab-btn');
-const tabPanes = document.querySelectorAll('.tab-pane');
-
-tabButtons.forEach(btn => {
-  btn.addEventListener('click', () => {
-    tabButtons.forEach(b => b.classList.remove('active'));
-    tabPanes.forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+function switchTab(tabId) {
+  document.querySelectorAll('.nav-item').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tabId);
   });
+  document.querySelectorAll('.pill-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tabId);
+  });
+  document.querySelectorAll('.tab-pane').forEach(p => {
+    p.classList.toggle('active', p.id === `tab-${tabId}`);
+  });
+}
+
+document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+document.querySelectorAll('.pill-btn[data-tab]').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+document.getElementById('btnQuickAdd').addEventListener('click', () => {
+  switchTab('todo');
+  document.getElementById('todoInput').focus();
+});
+
+document.getElementById('btnStartQuickStudy').addEventListener('click', () => {
+  switchTab('timer');
+  document.getElementById('btnTimerToggle').click();
 });
 
 // -------------------------------------------------------------
-// MODULE 1: DASHBOARD & STATS
+// MODULE 1: DASHBOARD & GITHUB-STYLE ACTIVITY HEATMAP
 // -------------------------------------------------------------
 function renderDashboard() {
-  // 1. Today study time
   const todayStr = new Date().toISOString().split('T')[0];
+
+  // 1. Study Hours KPI
   const todayMinutes = state.studyLogs
     .filter(log => log.date === todayStr)
     .reduce((sum, item) => sum + Number(item.duration_minutes || 0), 0);
   
-  const hours = Math.floor(todayMinutes / 60);
-  const mins = todayMinutes % 60;
-  document.getElementById('statTodayStudy').innerText = `${hours} giờ ${mins} phút`;
+  const studyHours = (todayMinutes / 60).toFixed(1);
+  document.getElementById('statStudyHours').innerText = studyHours;
+  
+  // Capsule Segmented Fill (8 segments, target 5.0h)
+  const targetStudyHours = 5.0;
+  const activeStudySegments = Math.min(8, Math.round((parseFloat(studyHours) / targetStudyHours) * 8));
+  const studyPct = Math.min(100, Math.round((parseFloat(studyHours) / targetStudyHours) * 100));
+  document.getElementById('kpiStudyPercent').innerText = `${studyPct}%`;
+  
+  const studyCapsules = document.querySelectorAll('#studyCapsuleBar .capsule-fill');
+  studyCapsules.forEach((cap, idx) => {
+    cap.classList.toggle('active', idx < activeStudySegments);
+  });
 
-  // 2. Todo ratio
+  // 2. Todo KPI
   const totalTodos = state.todos.length;
   const doneTodos = state.todos.filter(t => t.status === 'done').length;
-  document.getElementById('statTodoRatio').innerText = `${doneTodos}/${totalTodos}`;
-  const pct = totalTodos > 0 ? Math.round((doneTodos / totalTodos) * 100) : 0;
-  document.getElementById('statTodoBar').style.width = `${pct}%`;
+  document.getElementById('statTodoRatio').innerText = doneTodos;
+  document.getElementById('statTodoTotal').innerText = `/ ${totalTodos} việc`;
+  
+  const todoPct = totalTodos > 0 ? Math.round((doneTodos / totalTodos) * 100) : 0;
+  document.getElementById('kpiTodoPercent').innerText = `${todoPct}%`;
+  
+  const activeTodoSegments = totalTodos > 0 ? Math.min(8, Math.round((doneTodos / totalTodos) * 8)) : 0;
+  const todoCapsules = document.querySelectorAll('#todoCapsuleBar .capsule-fill');
+  todoCapsules.forEach((cap, idx) => {
+    cap.classList.toggle('active', idx < activeTodoSegments);
+  });
 
-  // 3. Goals list
-  document.getElementById('statGoalCount').innerText = `${state.goals.length} đang theo đuổi`;
-  const goalsContainer = document.getElementById('goalsList');
-  goalsContainer.innerHTML = '';
+  // 3. Render GitHub Heatmap Tracker
+  renderGithubHeatmap();
+
+  // 4. Render Weekly Dual Capsule Chart
+  renderWeeklyCapsuleChart();
+
+  // 5. Goals List
+  renderGoalsList();
+}
+
+// GitHub-Style Activity Heatmap Grid
+function renderGithubHeatmap() {
+  const container = document.getElementById('githubHeatmap');
+  if (!container) return;
+  container.innerHTML = '';
+
+  // Generate last 20 weeks (140 days)
+  const totalWeeks = 20;
+  const totalDays = totalWeeks * 7;
+  const today = new Date();
+  
+  // Calculate map of activity per date (study minutes + completed tasks)
+  const activityMap = {};
+  let totalStudyMinutes = 0;
+  
+  state.studyLogs.forEach(log => {
+    if (!log.date) return;
+    const mins = Number(log.duration_minutes || 0);
+    totalStudyMinutes += mins;
+    activityMap[log.date] = (activityMap[log.date] || 0) + mins;
+  });
+
+  state.todos.forEach(todo => {
+    if (todo.status === 'done') {
+      // Give each done task the weight of 25 mins activity
+      const d = todo.created_at || today.toISOString().split('T')[0];
+      activityMap[d] = (activityMap[d] || 0) + 25;
+    }
+  });
+
+  // Start from Sunday of 20 weeks ago
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - totalDays + (7 - today.getDay()));
+
+  let completedTasksCount = state.todos.filter(t => t.status === 'done').length;
+  document.getElementById('heatmapStatsSummary').innerText = 
+    `Tổng cộng: ${(totalStudyMinutes / 60).toFixed(1)} giờ học & ${completedTasksCount} việc đã xong`;
+
+  for (let i = 0; i < totalDays; i++) {
+    const d = new Date(startDate);
+    d.setDate(startDate.getDate() + i);
+    const dateStr = d.toISOString().split('T')[0];
+    const score = activityMap[dateStr] || 0;
+
+    // Determine level 0 to 4
+    let lvl = 'lvl-0';
+    if (score > 120) lvl = 'lvl-4';
+    else if (score > 60) lvl = 'lvl-3';
+    else if (score > 25) lvl = 'lvl-2';
+    else if (score > 0) lvl = 'lvl-1';
+
+    const cell = document.createElement('div');
+    cell.className = `heatmap-cell ${lvl}`;
+    const displayDate = d.toLocaleDateString('vi-VN');
+    cell.title = `${displayDate}: ${score > 0 ? `${score} phút hoạt động` : 'Chưa có hoạt động'}`;
+    container.appendChild(cell);
+  }
+}
+
+// Weekly Capsule Chart (Matching the reference design double capsule bars)
+function renderWeeklyCapsuleChart() {
+  const container = document.getElementById('weeklyCapsuleChart');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+  
+  days.forEach((day, idx) => {
+    // Generate realistic relative heights for demonstration
+    const darkPct = [65, 40, 85, 20, 75, 45, 60][idx];
+    const limePct = [25, 20, 15, 10, 20, 30, 25][idx];
+
+    const col = document.createElement('div');
+    col.className = 'dual-bar-col';
+    col.innerHTML = `
+      <div class="dual-capsule-track">
+        <div class="capsule-segment-dark" style="height: ${darkPct}%;"></div>
+        <div class="capsule-segment-lime" style="height: ${limePct}%;"></div>
+      </div>
+      <span class="day-label">${day}</span>
+    `;
+    container.appendChild(col);
+  });
+}
+
+function renderGoalsList() {
+  const container = document.getElementById('goalsList');
+  if (!container) return;
+  container.innerHTML = '';
 
   state.goals.forEach(goal => {
-    const goalPct = Math.min(100, Math.round((goal.achieved / goal.target) * 100));
-    const card = document.createElement('div');
-    card.className = 'goal-card';
-    card.style = 'margin-bottom: 1rem; padding: 0.75rem; background: var(--bg); border-radius: 8px; border: 1px solid var(--border);';
-    card.innerHTML = `
-      <div style="display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 0.25rem;">
+    const pct = Math.min(100, Math.round((goal.achieved / goal.target) * 100));
+    const item = document.createElement('div');
+    item.className = 'goal-item';
+    item.innerHTML = `
+      <div class="goal-info">
         <span>${escapeHtml(goal.title)}</span>
-        <span>${goal.achieved}/${goal.target} ${goal.unit} (${goalPct}%)</span>
+        <span>${goal.achieved}/${goal.target} ${goal.unit} (${pct}%)</span>
       </div>
-      <div class="progress-bar-bg">
-        <div class="progress-bar-fill" style="width: ${goalPct}%"></div>
+      <div class="progress-track">
+        <div class="progress-fill" style="width: ${pct}%"></div>
       </div>
     `;
-    goalsContainer.appendChild(card);
+    container.appendChild(item);
   });
 }
 
@@ -187,40 +333,33 @@ let currentTodoFilter = 'all';
 
 function renderTodos() {
   const list = document.getElementById('todoList');
+  if (!list) return;
   list.innerHTML = '';
-  
+
   const filtered = state.todos.filter(item => {
     if (currentTodoFilter === 'pending') return item.status !== 'done';
     if (currentTodoFilter === 'done') return item.status === 'done';
     return true;
   });
 
-  document.getElementById('todoCounter').innerText = `${filtered.length} việc`;
-
   filtered.forEach(todo => {
     const li = document.createElement('li');
-    li.className = `todo-item ${todo.status === 'done' ? 'done' : ''}`;
-    const priorityClass = `priority-${(todo.priority || 'Bình-thường').replace(/\s+/g, '-')}`;
-    
+    li.className = `stylish-todo-item ${todo.status === 'done' ? 'done' : ''}`;
+    const prioClass = `prio-${(todo.priority || 'Bình-thường').replace(/\s+/g, '-')}`;
+
     li.innerHTML = `
-      <div class="todo-left">
+      <div class="todo-left-box">
         <input type="checkbox" ${todo.status === 'done' ? 'checked' : ''} data-id="${todo.id}">
         <span>${escapeHtml(todo.task)}</span>
-        <span class="badge ${priorityClass}">${todo.priority || 'Bình thường'}</span>
+        <span class="badge-tag-prio ${prioClass}">${todo.priority || 'Bình thường'}</span>
       </div>
-      <button class="btn-delete" data-id="${todo.id}">🗑️</button>
+      <button class="btn-trash" data-id="${todo.id}">🗑️</button>
     `;
     list.appendChild(li);
   });
 
   renderDashboard();
 }
-
-// Event: Add Todo (Instant 0ms)
-document.getElementById('btnAddTodo').addEventListener('click', addTodo);
-document.getElementById('todoInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') addTodo();
-});
 
 function addTodo() {
   const input = document.getElementById('todoInput');
@@ -236,17 +375,19 @@ function addTodo() {
     created_at: new Date().toLocaleDateString('vi-VN')
   };
 
-  // 1. Optimistic Update Local
   state.todos.unshift(newTodo);
   saveToStorage(STORAGE_KEYS.TODOS, state.todos);
   input.value = '';
   renderTodos();
 
-  // 2. Sync Background to Google Sheet
   sendToSheet('append', 'Todos', { data: newTodo });
 }
 
-// Event: Toggle Todo Checkbox & Delete
+document.getElementById('btnAddTodo').addEventListener('click', addTodo);
+document.getElementById('todoInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') addTodo();
+});
+
 document.getElementById('todoList').addEventListener('click', (e) => {
   const id = e.target.dataset.id;
   if (!id) return;
@@ -259,7 +400,7 @@ document.getElementById('todoList').addEventListener('click', (e) => {
       renderTodos();
       sendToSheet('update_status', 'Todos', { id, status: item.status });
     }
-  } else if (e.target.classList.contains('btn-delete')) {
+  } else if (e.target.classList.contains('btn-trash')) {
     state.todos = state.todos.filter(t => t.id !== id);
     saveToStorage(STORAGE_KEYS.TODOS, state.todos);
     renderTodos();
@@ -267,10 +408,9 @@ document.getElementById('todoList').addEventListener('click', (e) => {
   }
 });
 
-// Todo Filter Buttons
-document.querySelectorAll('.filter-btn').forEach(btn => {
+document.querySelectorAll('.filter-pill').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentTodoFilter = btn.dataset.filter;
     renderTodos();
@@ -296,12 +436,11 @@ document.getElementById('btnSaveNote').addEventListener('click', () => {
 
   const newNote = {
     id: 'nt_' + Date.now(),
-    title: title || 'Ghi chú không tên',
-    content: content,
+    title: title || 'Ghi chú',
+    content,
     updated_at: new Date().toLocaleDateString('vi-VN')
   };
 
-  // Optimistic UI
   state.notes.unshift(newNote);
   saveToStorage(STORAGE_KEYS.NOTES, state.notes);
   document.getElementById('noteTitle').value = '';
@@ -309,25 +448,25 @@ document.getElementById('btnSaveNote').addEventListener('click', () => {
   noteForm.classList.add('hidden');
   renderNotes();
 
-  // Background Sync
   sendToSheet('append', 'Notes', { data: newNote });
 });
 
 function renderNotes() {
   const grid = document.getElementById('notesGrid');
+  if (!grid) return;
   grid.innerHTML = '';
 
   state.notes.forEach(note => {
     const card = document.createElement('div');
-    card.className = 'note-card';
+    card.className = 'note-box';
     card.innerHTML = `
       <div>
         <h3>${escapeHtml(note.title)}</h3>
         <p>${escapeHtml(note.content)}</p>
       </div>
-      <div class="note-meta">
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #a1a1aa;">
         <span>${note.updated_at || ''}</span>
-        <button class="btn-delete" data-id="${note.id}">🗑️</button>
+        <button class="btn-trash" data-id="${note.id}">🗑️</button>
       </div>
     `;
     grid.appendChild(card);
@@ -337,7 +476,7 @@ function renderNotes() {
 document.getElementById('notesGrid').addEventListener('click', (e) => {
   const id = e.target.dataset.id;
   if (!id) return;
-  if (confirm('Bạn có chắc muốn xóa ghi chú này?')) {
+  if (confirm('Xóa ghi chú này?')) {
     state.notes = state.notes.filter(n => n.id !== id);
     saveToStorage(STORAGE_KEYS.NOTES, state.notes);
     renderNotes();
@@ -351,7 +490,7 @@ document.getElementById('notesGrid').addEventListener('click', (e) => {
 let timerInterval = null;
 let timerSeconds = 25 * 60;
 let timerRunning = false;
-let timerMode = 'pomodoro'; // 'pomodoro' or 'stopwatch'
+let timerMode = 'pomodoro';
 
 const timerDisplay = document.getElementById('timerDisplay');
 const btnTimerToggle = document.getElementById('btnTimerToggle');
@@ -365,27 +504,24 @@ function updateTimerDisplay() {
 
 btnTimerToggle.addEventListener('click', () => {
   if (timerRunning) {
-    // Pause
     clearInterval(timerInterval);
     timerRunning = false;
     btnTimerToggle.innerText = 'Tiếp tục học';
   } else {
-    // Start
     timerRunning = true;
     btnTimerToggle.innerText = 'Tạm dừng';
     timerInterval = setInterval(() => {
-      if (timerMode === 'pomodoro') {
+      if (timerMode === 'pomodoro' || timerMode === 'short-break') {
         if (timerSeconds > 0) {
           timerSeconds--;
           updateTimerDisplay();
         } else {
           clearInterval(timerInterval);
           timerRunning = false;
-          alert('🔔 Hết giờ học Pomodoro! Nghỉ ngơi 5 phút nhé!');
+          alert('🔔 Hết giờ phiên học/nghỉ ngơi!');
           btnTimerToggle.innerText = 'Bắt đầu';
         }
       } else {
-        // Stopwatch count up
         timerSeconds++;
         updateTimerDisplay();
       }
@@ -396,28 +532,26 @@ btnTimerToggle.addEventListener('click', () => {
 btnTimerReset.addEventListener('click', () => {
   clearInterval(timerInterval);
   timerRunning = false;
-  timerSeconds = timerMode === 'pomodoro' ? 25 * 60 : 0;
+  timerSeconds = timerMode === 'pomodoro' ? 25 * 60 : (timerMode === 'short-break' ? 5 * 60 : 0);
   btnTimerToggle.innerText = 'Bắt đầu học';
   updateTimerDisplay();
 });
 
-// Switch mode
-document.querySelectorAll('.mode-btn').forEach(btn => {
+document.querySelectorAll('.mode-pill').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.mode-pill').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     timerMode = btn.dataset.mode;
     clearInterval(timerInterval);
     timerRunning = false;
-    timerSeconds = timerMode === 'pomodoro' ? 25 * 60 : 0;
+    timerSeconds = timerMode === 'pomodoro' ? 25 * 60 : (timerMode === 'short-break' ? 5 * 60 : 0);
     btnTimerToggle.innerText = 'Bắt đầu học';
     updateTimerDisplay();
   });
 });
 
-// Save Log manually
 document.getElementById('btnSaveLog').addEventListener('click', () => {
-  const subject = document.getElementById('logSubject').value.trim() || 'Tự học chung';
+  const subject = document.getElementById('logSubject').value.trim() || 'Tự học';
   const minutes = parseInt(document.getElementById('logMinutes').value, 10);
   if (!minutes || minutes <= 0) {
     alert('Vui lòng nhập số phút đã học!');
@@ -444,20 +578,21 @@ document.getElementById('btnSaveLog').addEventListener('click', () => {
 
 function renderStudyLogs() {
   const container = document.getElementById('studyLogsList');
+  if (!container) return;
   container.innerHTML = '';
-  state.studyLogs.slice(0, 10).forEach(log => {
+  state.studyLogs.slice(0, 8).forEach(log => {
     const item = document.createElement('div');
-    item.style = 'padding: 0.6rem 0.8rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.5rem; display: flex; justify-content: space-between; font-size: 0.9rem;';
+    item.style = 'padding: 0.6rem 0.9rem; background: #f8fafc; border: 1px solid #e4e4e7; border-radius: 10px; margin-bottom: 0.4rem; display: flex; justify-content: space-between; font-size: 0.88rem;';
     item.innerHTML = `
       <span>📚 <strong>${escapeHtml(log.subject)}</strong> (${log.duration_minutes} phút)</span>
-      <span style="color: var(--text-muted); font-size: 0.8rem;">${log.date}</span>
+      <span style="color: #71717a; font-size: 0.8rem;">${log.date}</span>
     `;
     container.appendChild(item);
   });
 }
 
 // -------------------------------------------------------------
-// MODULE 5: SCHEDULE (LỊCH HỌC & LỊCH RẢNH)
+// MODULE 5: SCHEDULE
 // -------------------------------------------------------------
 const scheduleForm = document.getElementById('scheduleForm');
 document.getElementById('btnAddSchedule').addEventListener('click', () => {
@@ -494,7 +629,7 @@ document.getElementById('btnSaveSchedule').addEventListener('click', () => {
 function renderSchedule() {
   const days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
   days.forEach(day => {
-    const col = document.querySelector(`.day-col[data-day="${day}"] .day-slots`);
+    const col = document.querySelector(`.day-slot-card[data-day="${day}"] .day-slots`);
     if (!col) return;
     col.innerHTML = '';
     const slots = state.schedule.filter(s => s.day === day);
@@ -502,9 +637,9 @@ function renderSchedule() {
 
     slots.forEach(slot => {
       const div = document.createElement('div');
-      div.className = `slot-item type-${slot.type}`;
+      div.className = `sched-slot type-${slot.type}`;
       div.innerHTML = `
-        <div class="slot-time">${slot.start_time} - ${slot.end_time}</div>
+        <div style="font-weight: 700; font-size: 0.75rem;">${slot.start_time} - ${slot.end_time}</div>
         <div>${escapeHtml(slot.activity)}</div>
       `;
       col.appendChild(div);
@@ -513,16 +648,18 @@ function renderSchedule() {
 }
 
 // -------------------------------------------------------------
-// SETTINGS & MODAL
+// SETTINGS MODAL
 // -------------------------------------------------------------
 const settingsModal = document.getElementById('settingsModal');
 const inputApiUrl = document.getElementById('inputApiUrl');
 
-document.getElementById('btnSettings').addEventListener('click', () => {
+function openSettings() {
   inputApiUrl.value = state.apiUrl;
   settingsModal.classList.remove('hidden');
-});
+}
 
+document.getElementById('btnSettings').addEventListener('click', openSettings);
+document.getElementById('btnSettingsIcon').addEventListener('click', openSettings);
 document.getElementById('btnCloseModal').addEventListener('click', () => {
   settingsModal.classList.add('hidden');
 });
@@ -544,7 +681,7 @@ document.getElementById('btnSyncNow').addEventListener('click', () => {
   fetchAllFromSheet();
 });
 
-// Helper XSS Escape
+// Helper Escape HTML
 function escapeHtml(str) {
   if (!str) return '';
   return String(str).replace(/[&<>"']/g, m => ({
@@ -556,7 +693,6 @@ function escapeHtml(str) {
   }[m]));
 }
 
-// Initial Render All
 function renderAll() {
   renderDashboard();
   renderTodos();

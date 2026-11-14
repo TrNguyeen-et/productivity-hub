@@ -3,233 +3,395 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Productivity Hub & Study Tracker</title>
+  <title>Productivity & Study Hub</title>
   
-  <!-- Apple iPad & Mobile Web App Meta -->
+  <!-- Apple & Mobile Web App Meta -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Productivity">
-  <meta name="theme-color" content="#4f46e5">
-  
-  <link rel="stylesheet" href="style.css">
+  <meta name="theme-color" content="#161616">
+
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Cabinet+Grotesk:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Header & Sync Status -->
-  <header class="app-header">
-    <div class="header-left">
-      <div class="logo-icon">⚡</div>
-      <div>
-        <h1>Productivity Hub</h1>
-        <p class="subtitle">Hệ thống quản lý học tập & năng suất</p>
-      </div>
-    </div>
-    <div class="header-right">
-      <div id="syncBadge" class="sync-badge idle" title="Trạng thái đồng bộ">
-        <span class="dot"></span>
-        <span id="syncText">Cục bộ (Chưa nối Sheet)</span>
-      </div>
-      <button id="btnSettings" class="btn btn-secondary">⚙️ Cài đặt Sheet</button>
-    </div>
-  </header>
 
-  <!-- Navigation Tabs -->
-  <nav class="nav-tabs">
-    <button class="tab-btn active" data-tab="dashboard">📊 Tổng quan & Mục tiêu</button>
-    <button class="tab-btn" data-tab="timer">⏱️ Đồng hồ tự học</button>
-    <button class="tab-btn" data-tab="todo">✅ Việc cần làm (Todo)</button>
-    <button class="tab-btn" data-tab="notes">📝 Ghi chú (Notes)</button>
-    <button class="tab-btn" data-tab="schedule">📅 Lịch học & Lịch rảnh</button>
-  </nav>
+  <!-- Main Canvas Wrapper (Matches the soft sage background with rounded floating app) -->
+  <div class="canvas-wrapper">
+    <div class="app-frame">
+      
+      <!-- LEFT DARK PILL SIDEBAR -->
+      <aside class="sidebar-pill">
+        <div class="sidebar-top">
+          <div class="brand-logo" title="Productivity Hub">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          </div>
 
-  <!-- Main Content Areas -->
-  <main class="container">
-    
-    <!-- TAB 1: DASHBOARD -->
-    <section id="tab-dashboard" class="tab-pane active">
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-title">Thời gian học hôm nay</div>
-          <div class="stat-value" id="statTodayStudy">0 giờ 0 phút</div>
-          <div class="stat-desc">Dựa trên các phiên bấm giờ học</div>
+          <nav class="sidebar-nav">
+            <button class="nav-item active" data-tab="dashboard" title="Tổng quan & Thống kê">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </button>
+            <button class="nav-item" data-tab="timer" title="Đồng hồ tự học">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </button>
+            <button class="nav-item" data-tab="todo" title="Việc cần làm (Todo)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            </button>
+            <button class="nav-item" data-tab="notes" title="Ghi chú">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </button>
+            <button class="nav-item" data-tab="schedule" title="Lịch học & Lịch rảnh">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </button>
+          </nav>
         </div>
-        <div class="stat-card">
-          <div class="stat-title">Nhiệm vụ hoàn thành</div>
-          <div class="stat-value" id="statTodoRatio">0/0</div>
-          <div class="progress-bar-bg">
-            <div id="statTodoBar" class="progress-bar-fill" style="width: 0%"></div>
+
+        <div class="sidebar-bottom">
+          <button id="btnSettingsIcon" class="nav-item" title="Cài đặt Google Sheets">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
+          <div class="user-avatar" title="Tài khoản cá nhân">
+            <span>🎓</span>
           </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-title">Mục tiêu tháng</div>
-          <div class="stat-value" id="statGoalCount">0 đang theo đuổi</div>
-          <div class="stat-desc">Tiến độ tích lũy thời gian học</div>
-        </div>
-      </div>
+      </aside>
 
-      <!-- Goals List -->
-      <div class="card mt-4">
-        <div class="card-header">
-          <h2>🎯 Mục tiêu học tập</h2>
-          <button id="btnAddGoal" class="btn btn-primary btn-sm">+ Thêm mục tiêu</button>
-        </div>
-        <div id="goalsList" class="goals-container">
-          <!-- Dynamic Goals -->
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 2: STUDY TIMER -->
-    <section id="tab-timer" class="tab-pane">
-      <div class="timer-wrapper card">
-        <h2>⏱️ Bấm giờ tự học (Pomodoro / Stopwatch)</h2>
-        <div class="timer-display" id="timerDisplay">25:00</div>
+      <!-- MAIN CONTENT STAGE -->
+      <main class="main-stage">
         
-        <div class="timer-controls">
-          <button id="btnTimerToggle" class="btn btn-primary btn-lg">Bắt đầu học</button>
-          <button id="btnTimerReset" class="btn btn-secondary btn-lg">Đặt lại</button>
-        </div>
-
-        <div class="timer-mode-selector">
-          <button class="mode-btn active" data-mode="pomodoro">Pomodoro (25 phút)</button>
-          <button class="mode-btn" data-mode="stopwatch">Bấm giờ tự do</button>
-        </div>
-
-        <div class="timer-log-form card mt-4">
-          <h3>Ghi nhận phiên học vừa xong</h3>
-          <div class="form-row">
-            <input type="text" id="logSubject" placeholder="Tên môn / Chủ đề (VD: Toán rời rạc, Lập trình React)">
-            <input type="number" id="logMinutes" placeholder="Số phút tự học" min="1">
-            <button id="btnSaveLog" class="btn btn-primary">Lưu phiên học</button>
+        <!-- HEADER TOP -->
+        <header class="dashboard-header">
+          <div class="header-title-box">
+            <h1 class="main-heading">
+              Managing <span class="badge-tag tag-user">👤</span> Your Study <br>
+              and <span class="badge-tag tag-sparkle">✨</span> Workflows
+            </h1>
           </div>
+
+          <div class="header-actions">
+            <!-- Sync Status Pill -->
+            <div id="syncBadge" class="sync-pill-badge idle" title="Trạng thái kết nối Google Sheets">
+              <span class="dot"></span>
+              <span id="syncText">Đang kiểm tra...</span>
+            </div>
+
+            <button id="btnSettings" class="btn-pill btn-pill-outline">
+              ⚙️ Cài đặt Sheet
+            </button>
+            <button id="btnQuickAdd" class="btn-pill btn-pill-dark">
+              + Thêm nhanh
+            </button>
+          </div>
+        </header>
+
+        <!-- HORIZONTAL SUBNAV PILLS -->
+        <nav class="subnav-pills">
+          <button class="pill-btn active" data-tab="dashboard">Tổng quan</button>
+          <button class="pill-btn" data-tab="timer">⏱️ Bấm giờ</button>
+          <button class="pill-btn" data-tab="todo">✅ Việc cần làm</button>
+          <button class="pill-btn" data-tab="notes">📝 Ghi chú</button>
+          <button class="pill-btn" data-tab="schedule">📅 Lịch tuần</button>
+        </nav>
+
+        <!-- TAB CONTENT CONTAINER -->
+        <div class="tab-viewport">
+          
+          <!-- TAB 1: DASHBOARD -->
+          <section id="tab-dashboard" class="tab-pane active">
+            
+            <!-- TOP 3 KPI CARDS (Matching the design style) -->
+            <div class="kpi-grid">
+              
+              <!-- Card 1: Study Time (Soft Grey/Blue tint) -->
+              <div class="kpi-card card-blue-soft">
+                <div class="kpi-top">
+                  <div class="kpi-label-group">
+                    <span class="icon-circle">⏱️</span>
+                    <span class="kpi-title">Thời gian tự học</span>
+                  </div>
+                  <span class="kpi-percent" id="kpiStudyPercent">82%</span>
+                </div>
+                
+                <div class="kpi-big-number">
+                  <span id="statStudyHours">3.5</span>
+                  <span class="kpi-unit">/ 5.0 giờ hôm nay</span>
+                </div>
+
+                <!-- Capsule Segmented Bar -->
+                <div class="capsule-bar" id="studyCapsuleBar">
+                  <div class="capsule-fill active"></div>
+                  <div class="capsule-fill active"></div>
+                  <div class="capsule-fill active"></div>
+                  <div class="capsule-fill active"></div>
+                  <div class="capsule-fill active"></div>
+                  <div class="capsule-fill"></div>
+                  <div class="capsule-fill"></div>
+                  <div class="capsule-fill"></div>
+                </div>
+              </div>
+
+              <!-- Card 2: Todo Completed (Soft Lime tint) -->
+              <div class="kpi-card card-lime-soft">
+                <div class="kpi-top">
+                  <div class="kpi-label-group">
+                    <span class="icon-circle">✅</span>
+                    <span class="kpi-title">Nhiệm vụ hoàn thành</span>
+                  </div>
+                  <span class="kpi-percent" id="kpiTodoPercent">68%</span>
+                </div>
+                
+                <div class="kpi-big-number">
+                  <span id="statTodoRatio">12</span>
+                  <span class="kpi-unit" id="statTodoTotal">/ 18 việc</span>
+                </div>
+
+                <!-- Capsule Segmented Bar -->
+                <div class="capsule-bar" id="todoCapsuleBar">
+                  <div class="capsule-fill active"></div>
+                  <div class="capsule-fill active"></div>
+                  <div class="capsule-fill active"></div>
+                  <div class="capsule-fill active"></div>
+                  <div class="capsule-fill"></div>
+                  <div class="capsule-fill"></div>
+                  <div class="capsule-fill"></div>
+                  <div class="capsule-fill"></div>
+                </div>
+              </div>
+
+              <!-- Card 3: Motivation Card (Black Pill Card) -->
+              <div class="kpi-card card-dark-promo">
+                <div class="promo-text">
+                  <h3>Take Your Focus <br>to the Next Level</h3>
+                  <p>Chuỗi tự học 5 ngày liên tiếp</p>
+                </div>
+                <button id="btnStartQuickStudy" class="btn-pill-light">
+                  Bắt đầu học ▷
+                </button>
+              </div>
+
+            </div>
+
+            <!-- GITHUB-STYLE CONTRIBUTION HEATMAP (Track hoạt động) -->
+            <div class="dashboard-block card-white mt-4">
+              <div class="block-header">
+                <div>
+                  <h2 class="block-title">🔥 Biểu đồ chuyên cần (GitHub Activity Tracker)</h2>
+                  <p class="block-subtitle">Theo dõi số phiên học và nhiệm vụ hoàn thành theo từng ngày</p>
+                </div>
+                <div class="heatmap-legend">
+                  <span>Ít</span>
+                  <div class="legend-box lvl-0"></div>
+                  <div class="legend-box lvl-1"></div>
+                  <div class="legend-box lvl-2"></div>
+                  <div class="legend-box lvl-3"></div>
+                  <div class="legend-box lvl-4"></div>
+                  <span>Nhiều</span>
+                </div>
+              </div>
+
+              <!-- Scrollable Heatmap Grid Container -->
+              <div class="heatmap-scroll-wrapper">
+                <div id="githubHeatmap" class="github-heatmap-grid">
+                  <!-- Rendered dynamically by app.js -->
+                </div>
+              </div>
+
+              <div class="heatmap-footer">
+                <span id="heatmapStatsSummary">Tổng cộng: 0 giờ học và 0 việc đã hoàn thành</span>
+                <span class="text-muted">Cập nhật theo thời gian thực từ Google Sheets</span>
+              </div>
+            </div>
+
+            <!-- STATISTICS & WEEKLY BREAKDOWN (Capsule Dual Bar Chart Style) -->
+            <div class="dashboard-split-grid mt-4">
+              
+              <!-- Left: Capsule Bar Chart -->
+              <div class="card-white split-card">
+                <div class="block-header">
+                  <h2 class="block-title">📊 Phân bổ học trong tuần</h2>
+                  <span class="badge-pill">Tuần này</span>
+                </div>
+
+                <div class="chart-dual-container" id="weeklyCapsuleChart">
+                  <!-- Dynamic 7 Day Double Capsule Bars -->
+                </div>
+              </div>
+
+              <!-- Right: Goals Progress -->
+              <div class="card-white split-card">
+                <div class="block-header">
+                  <h2 class="block-title">🎯 Mục tiêu đang theo đuổi</h2>
+                  <button id="btnAddGoal" class="btn-pill btn-pill-outline btn-sm">+ Thêm mục tiêu</button>
+                </div>
+                <div id="goalsList" class="goals-container">
+                  <!-- Dynamic Goals -->
+                </div>
+              </div>
+
+            </div>
+
+          </section>
+
+          <!-- TAB 2: TIMER -->
+          <section id="tab-timer" class="tab-pane">
+            <div class="card-white timer-container">
+              <div class="timer-card-inner">
+                <div class="timer-mode-pills">
+                  <button class="mode-pill active" data-mode="pomodoro">🍅 Pomodoro 25m</button>
+                  <button class="mode-pill" data-mode="short-break">☕ Nghỉ ngắn 5m</button>
+                  <button class="mode-pill" data-mode="stopwatch">⏱️ Bấm giờ tự do</button>
+                </div>
+
+                <div class="timer-clock-display" id="timerDisplay">25:00</div>
+
+                <div class="timer-action-row">
+                  <button id="btnTimerToggle" class="btn-pill btn-pill-dark btn-pill-lg">Bắt đầu học</button>
+                  <button id="btnTimerReset" class="btn-pill btn-pill-outline btn-pill-lg">Đặt lại</button>
+                </div>
+
+                <div class="study-log-card mt-4">
+                  <h3>Ghi nhận phiên học vào Sheet</h3>
+                  <div class="input-inline-group">
+                    <input type="text" id="logSubject" placeholder="Tên môn học (VD: Toán, Lập trình React)">
+                    <input type="number" id="logMinutes" placeholder="Số phút" min="1" style="max-width: 120px;">
+                    <button id="btnSaveLog" class="btn-pill btn-pill-dark">Lưu phiên</button>
+                  </div>
+                </div>
+
+                <div class="study-history mt-4">
+                  <h3>Lịch sử học tập gần đây</h3>
+                  <div id="studyLogsList" class="study-logs-stack"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- TAB 3: TODO LIST -->
+          <section id="tab-todo" class="tab-pane">
+            <div class="card-white">
+              <div class="block-header">
+                <div>
+                  <h2 class="block-title">✅ Danh sách việc cần làm</h2>
+                  <p class="block-subtitle">Tick hoàn thành phản hồi 0ms và tự lưu vào Google Sheets</p>
+                </div>
+                <div class="todo-filter-pills">
+                  <button class="filter-pill active" data-filter="all">Tất cả</button>
+                  <button class="filter-pill" data-filter="pending">Đang làm</button>
+                  <button class="filter-pill" data-filter="done">Đã xong</button>
+                </div>
+              </div>
+
+              <div class="todo-create-bar">
+                <input type="text" id="todoInput" placeholder="Thêm việc cần làm (ấn Enter)...">
+                <select id="todoPriority" class="select-pill">
+                  <option value="Bình thường">Bình thường</option>
+                  <option value="Quan trọng">Quan trọng</option>
+                  <option value="Khẩn cấp">Khẩn cấp</option>
+                </select>
+                <button id="btnAddTodo" class="btn-pill btn-pill-dark">Thêm việc</button>
+              </div>
+
+              <ul id="todoList" class="stylish-todo-list"></ul>
+            </div>
+          </section>
+
+          <!-- TAB 4: NOTES -->
+          <section id="tab-notes" class="tab-pane">
+            <div class="card-white">
+              <div class="block-header">
+                <div>
+                  <h2 class="block-title">📝 Ghi chú & Ý tưởng</h2>
+                  <p class="block-subtitle">Lưu tóm tắt bài học, công thức và ghi nhớ quan trọng</p>
+                </div>
+                <button id="btnNewNote" class="btn-pill btn-pill-dark btn-sm">+ Ghi chú mới</button>
+              </div>
+
+              <div id="noteForm" class="note-composer card-soft mt-3 hidden">
+                <input type="text" id="noteTitle" placeholder="Tiêu đề ghi chú...">
+                <textarea id="noteContent" rows="4" placeholder="Nội dung chi tiết..."></textarea>
+                <div class="composer-actions">
+                  <button id="btnSaveNote" class="btn-pill btn-pill-dark">Lưu ghi chú</button>
+                  <button id="btnCancelNote" class="btn-pill btn-pill-outline">Hủy</button>
+                </div>
+              </div>
+
+              <div id="notesGrid" class="stylish-notes-grid mt-4"></div>
+            </div>
+          </section>
+
+          <!-- TAB 5: SCHEDULE -->
+          <section id="tab-schedule" class="tab-pane">
+            <div class="card-white">
+              <div class="block-header">
+                <div>
+                  <h2 class="block-title">📅 Thời khóa biểu & Lịch rảnh</h2>
+                  <p class="block-subtitle">Phân loại giờ Học (xanh đậm) và giờ Rảnh (xanh lá pastel)</p>
+                </div>
+                <button id="btnAddSchedule" class="btn-pill btn-pill-dark btn-sm">+ Thêm khung giờ</button>
+              </div>
+
+              <div id="scheduleForm" class="schedule-composer card-soft mt-3 hidden">
+                <div class="schedule-form-grid">
+                  <select id="schedDay" class="select-pill">
+                    <option value="Thứ 2">Thứ 2</option>
+                    <option value="Thứ 3">Thứ 3</option>
+                    <option value="Thứ 4">Thứ 4</option>
+                    <option value="Thứ 5">Thứ 5</option>
+                    <option value="Thứ 6">Thứ 6</option>
+                    <option value="Thứ 7">Thứ 7</option>
+                    <option value="Chủ nhật">Chủ nhật</option>
+                  </select>
+                  <input type="time" id="schedStart" value="08:00">
+                  <input type="time" id="schedEnd" value="10:00">
+                  <select id="schedType" class="select-pill">
+                    <option value="Học">📚 Giờ học</option>
+                    <option value="Rảnh">☕ Giờ rảnh</option>
+                  </select>
+                  <input type="text" id="schedActivity" placeholder="Môn học / Hoạt động dự kiến" style="grid-column: span 2;">
+                </div>
+                <div class="composer-actions mt-3">
+                  <button id="btnSaveSchedule" class="btn-pill btn-pill-dark">Lưu vào lịch</button>
+                  <button id="btnCancelSchedule" class="btn-pill btn-pill-outline">Hủy</button>
+                </div>
+              </div>
+
+              <div class="stylish-days-grid mt-4">
+                <div class="day-slot-card" data-day="Thứ 2"><h3>Thứ 2</h3><div class="day-slots"></div></div>
+                <div class="day-slot-card" data-day="Thứ 3"><h3>Thứ 3</h3><div class="day-slots"></div></div>
+                <div class="day-slot-card" data-day="Thứ 4"><h3>Thứ 4</h3><div class="day-slots"></div></div>
+                <div class="day-slot-card" data-day="Thứ 5"><h3>Thứ 5</h3><div class="day-slots"></div></div>
+                <div class="day-slot-card" data-day="Thứ 6"><h3>Thứ 6</h3><div class="day-slots"></div></div>
+                <div class="day-slot-card" data-day="Thứ 7"><h3>Thứ 7</h3><div class="day-slots"></div></div>
+                <div class="day-slot-card" data-day="Chủ nhật"><h3>Chủ nhật</h3><div class="day-slots"></div></div>
+              </div>
+            </div>
+          </section>
+
         </div>
 
-        <div class="mt-4">
-          <h3>Lịch sử học gần đây</h3>
-          <div id="studyLogsList" class="list-group">
-            <!-- Dynamic Logs -->
-          </div>
-        </div>
+      </main>
+
+    </div>
+  </div>
+
+  <!-- GOOGLE SHEETS SETTINGS MODAL -->
+  <div id="settingsModal" class="modal-backdrop hidden">
+    <div class="modal-pill-box">
+      <div class="modal-head">
+        <h3>⚙️ Kết nối Google Sheets</h3>
+        <button id="btnCloseModal" class="btn-close">×</button>
       </div>
-    </section>
-
-    <!-- TAB 3: TODO LIST -->
-    <section id="tab-todo" class="tab-pane">
-      <div class="card">
-        <div class="card-header">
-          <h2>✅ Danh sách việc cần làm</h2>
-          <span class="badge" id="todoCounter">0 việc</span>
-        </div>
-
-        <div class="todo-input-row">
-          <input type="text" id="todoInput" placeholder="Nhập việc cần làm hôm nay (ấn Enter để thêm)...">
-          <select id="todoPriority">
-            <option value="Bình thường">Bình thường</option>
-            <option value="Quan trọng">Quan trọng</option>
-            <option value="Khẩn cấp">Khẩn cấp</option>
-          </select>
-          <button id="btnAddTodo" class="btn btn-primary">Thêm</button>
-        </div>
-
-        <div class="todo-filter">
-          <button class="filter-btn active" data-filter="all">Tất cả</button>
-          <button class="filter-btn" data-filter="pending">Chưa xong</button>
-          <button class="filter-btn" data-filter="done">Đã xong</button>
-        </div>
-
-        <ul id="todoList" class="todo-items">
-          <!-- Dynamic Todo Items -->
-        </ul>
-      </div>
-    </section>
-
-    <!-- TAB 4: NOTES -->
-    <section id="tab-notes" class="tab-pane">
-      <div class="card">
-        <div class="card-header">
-          <h2>📝 Ghi chú nhanh (Quick Notes)</h2>
-          <button id="btnNewNote" class="btn btn-primary btn-sm">+ Ghi chú mới</button>
-        </div>
-
-        <div id="noteForm" class="note-editor card mt-3 hidden">
-          <input type="text" id="noteTitle" placeholder="Tiêu đề ghi chú...">
-          <textarea id="noteContent" rows="4" placeholder="Nội dung ghi chú, tóm tắt bài học, công thức..."></textarea>
-          <div class="editor-actions">
-            <button id="btnSaveNote" class="btn btn-primary">Lưu ghi chú</button>
-            <button id="btnCancelNote" class="btn btn-secondary">Hủy</button>
-          </div>
-        </div>
-
-        <div id="notesGrid" class="notes-grid mt-4">
-          <!-- Dynamic Notes Cards -->
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 5: SCHEDULE -->
-    <section id="tab-schedule" class="tab-pane">
-      <div class="card">
-        <div class="card-header">
-          <h2>📅 Lịch học & Lịch rảnh trong tuần</h2>
-          <button id="btnAddSchedule" class="btn btn-primary btn-sm">+ Thêm khung giờ</button>
-        </div>
-
-        <!-- Add Schedule Form -->
-        <div id="scheduleForm" class="card mt-3 hidden">
-          <div class="form-grid">
-            <select id="schedDay">
-              <option value="Thứ 2">Thứ 2</option>
-              <option value="Thứ 3">Thứ 3</option>
-              <option value="Thứ 4">Thứ 4</option>
-              <option value="Thứ 5">Thứ 5</option>
-              <option value="Thứ 6">Thứ 6</option>
-              <option value="Thứ 7">Thứ 7</option>
-              <option value="Chủ nhật">Chủ nhật</option>
-            </select>
-            <input type="time" id="schedStart" value="08:00">
-            <input type="time" id="schedEnd" value="10:00">
-            <select id="schedType">
-              <option value="Học">📚 Giờ học</option>
-              <option value="Rảnh">☕ Giờ rảnh</option>
-            </select>
-            <input type="text" id="schedActivity" placeholder="Môn học / Hoạt động dự định" style="grid-column: span 2;">
-          </div>
-          <div class="editor-actions mt-3">
-            <button id="btnSaveSchedule" class="btn btn-primary">Lưu lịch</button>
-            <button id="btnCancelSchedule" class="btn btn-secondary">Hủy</button>
-          </div>
-        </div>
-
-        <div class="schedule-days-grid mt-4">
-          <!-- 7 Days Columns -->
-          <div class="day-col" data-day="Thứ 2"><h4>Thứ 2</h4><div class="day-slots"></div></div>
-          <div class="day-col" data-day="Thứ 3"><h4>Thứ 3</h4><div class="day-slots"></div></div>
-          <div class="day-col" data-day="Thứ 4"><h4>Thứ 4</h4><div class="day-slots"></div></div>
-          <div class="day-col" data-day="Thứ 5"><h4>Thứ 5</h4><div class="day-slots"></div></div>
-          <div class="day-col" data-day="Thứ 6"><h4>Thứ 6</h4><div class="day-slots"></div></div>
-          <div class="day-col" data-day="Thứ 7"><h4>Thứ 7</h4><div class="day-slots"></div></div>
-          <div class="day-col" data-day="Chủ nhật"><h4>Chủ nhật</h4><div class="day-slots"></div></div>
-        </div>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- SETTINGS MODAL -->
-  <div id="settingsModal" class="modal-overlay hidden">
-    <div class="modal-card">
-      <h3>⚙️ Kết nối Google Sheets</h3>
-      <p class="modal-desc">Dán link <strong>URL ứng dụng web (Web App URL)</strong> từ Google Apps Script của bạn vào đây để đồng bộ tự động 2 chiều.</p>
+      <p class="modal-desc">Dán link <strong>URL ứng dụng web (Web App URL)</strong> từ Google Apps Script của bạn (link kết thúc bằng <code>/exec</code>) để đồng bộ tự động 2 chiều.</p>
       
-      <label>Google Apps Script Web App URL:</label>
-      <input type="url" id="inputApiUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      <label class="form-label">Google Apps Script Web App URL:</label>
+      <input type="url" id="inputApiUrl" class="modal-input" placeholder="https://script.google.com/macros/s/.../exec">
       
-      <div class="modal-actions">
-        <button id="btnSaveApiUrl" class="btn btn-primary">Lưu kết nối</button>
-        <button id="btnSyncNow" class="btn btn-secondary">Đồng bộ dữ liệu ngay</button>
-        <button id="btnCloseModal" class="btn btn-text">Đóng</button>
+      <div class="modal-foot">
+        <button id="btnSyncNow" class="btn-pill btn-pill-outline">Tải lại từ Sheet</button>
+        <button id="btnSaveApiUrl" class="btn-pill btn-pill-dark">Lưu kết nối</button>
       </div>
     </div>
   </div>
