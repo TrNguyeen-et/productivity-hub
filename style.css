@@ -1,3 +1,209 @@
+/* -------------------------------------------------------------
+   ARTISTIC GATEWAY (BLACK & WHITE DUAL THEMES)
+   ------------------------------------------------------------- */
+.art-gateway-portal {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  overflow: hidden;
+  transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform 0.45s ease;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+}
+.art-gateway-portal.hidden-portal {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(1.03);
+}
+
+.gateway-mode-canvas {
+  width: 100vw;
+  height: 100vh;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+
+/* BLACK / DARK GATEWAY CANVAS */
+.canvas-dark {
+  background-color: #000000;
+  color: #ffffff;
+}
+
+.gateway-dark-layout {
+  width: 100%;
+  max-width: 900px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3vh 2rem 2vh;
+  position: relative;
+}
+
+.sun-obj-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin-top: 1vh;
+  z-index: 10;
+}
+
+.sun-obj {
+  width: auto;
+  height: 28vh;
+  max-height: 270px;
+  max-width: 80vw;
+  object-fit: contain;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
+  transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  cursor: pointer;
+}
+
+.sun-obj:hover {
+  transform: scale(1.1);
+  filter: drop-shadow(0 0 35px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 70px rgba(255, 255, 255, 0.6)) brightness(1.2);
+}
+
+.icarus-obj-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin-top: -2vh;
+  z-index: 5;
+}
+
+.icarus-dark-obj {
+  width: auto;
+  height: 48vh;
+  max-height: 440px;
+  max-width: 85vw;
+  object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.2));
+  transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  cursor: pointer;
+}
+
+.icarus-dark-obj:hover {
+  transform: scale(1.08) translateY(6px);
+  filter: drop-shadow(0 0 30px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 60px rgba(200, 220, 255, 0.5)) brightness(1.25);
+}
+
+/* WHITE / LIGHT GATEWAY CANVAS */
+.canvas-white {
+  background-color: #ffffff;
+  color: #121316;
+}
+
+.gateway-white-layout {
+  width: 100%;
+  max-width: 1000px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 4vh 2rem 3vh;
+  position: relative;
+}
+
+.icarus-white-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  flex: 1;
+  max-height: 75vh;
+}
+
+.icarus-white-img {
+  width: auto;
+  height: 70vh;
+  max-height: 650px;
+  max-width: 85vw;
+  object-fit: contain;
+  transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  cursor: pointer;
+}
+
+.icarus-white-img:hover {
+  transform: scale(1.04);
+  filter: drop-shadow(0 15px 35px rgba(200, 40, 20, 0.35));
+}
+
+/* QUOTE BARS */
+.gateway-quote-bar {
+  text-align: center;
+  z-index: 20;
+  padding: 1rem 0;
+}
+
+.quote-text {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: clamp(1.25rem, 3.2vw, 2.2rem);
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.quote-dark-bar .quote-text {
+  color: #c9933e;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+}
+
+.quote-white-bar .quote-text {
+  color: #121316;
+  font-weight: 500;
+}
+
+/* Quote Interactive Action Buttons */
+.quote-action-btn {
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  padding: 0 0.15rem;
+  transition: all 0.2s ease;
+}
+
+.quote-switch-btn {
+  color: #f3c262;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.quote-switch-btn:hover {
+  color: #ffffff;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.95), 0 0 35px rgba(243, 194, 98, 0.8);
+  transform: scale(1.08);
+}
+
+.quote-user-btn {
+  color: #000000;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  position: relative;
+}
+.quote-user-btn:hover {
+  color: #e63914;
+  text-shadow: 0 0 15px rgba(230, 57, 20, 0.4);
+  transform: scale(1.08);
+}
+
+@media (max-height: 700px) {
+  .sun-obj { height: 24vh; }
+  .icarus-dark-obj { height: 42vh; }
+  .icarus-white-img { height: 60vh; }
+  .quote-text { font-size: 1.25rem; }
+}
+
 :root {
   --bg-canvas: #dbe3d9; /* Soft sage/mint outer canvas */
   --bg-frame: #ffffff;
@@ -270,6 +476,19 @@ body {
 }
 .btn-pill-outline:hover {
   background: #f4f4f5;
+}
+
+.user-pill-svg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 0.35rem;
+  color: currentColor;
+}
+.user-pill-svg svg {
+  width: 17px;
+  height: 17px;
+  display: block;
 }
 
 .btn-pill-light {
@@ -699,6 +918,24 @@ body {
   outline: none;
   width: 100%;
   background: #ffffff;
+}
+
+.study-log-item {
+  padding: 0.75rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  margin-bottom: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.88rem;
+  color: var(--text-dark);
+}
+
+.study-log-item .log-date {
+  color: var(--text-muted);
+  font-size: 0.8rem;
 }
 
 .input-inline-group input:focus,
