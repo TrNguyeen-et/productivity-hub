@@ -18,7 +18,7 @@ function saveToStorage(baseKey, data) {
   localStorage.setItem(getUserKey(baseKey), JSON.stringify(data));
 }
 
-// Chuẩn hoá định dạng thời gian HH:mm (xử lý cả chuỗi ISO từ Google Sheets: 1899-12-30T10:53:30.000Z)
+// Chuẩn hoá định dạng thời gian HH:mm (xử lý triệt để chuỗi ISO từ Google Sheets: 1899-12-30T10:53:30.000Z)
 function formatScheduleTime(val) {
   if (!val) return '08:00';
   const str = String(val).trim();
@@ -35,8 +35,25 @@ function formatScheduleTime(val) {
   if (str.includes('T') || (str.includes('-') && str.length > 10)) {
     const d = new Date(str);
     if (!isNaN(d.getTime())) {
-      const h = String(d.getHours()).padStart(2, '0');
-      const m = String(d.getMinutes()).padStart(2, '0');
+      let totalMins = d.getHours() * 60 + d.getMinutes();
+      if (d.getSeconds() >= 25 && d.getSeconds() <= 35) {
+        totalMins = Math.round((totalMins * 60 + d.getSeconds()) / 60);
+      }
+      const h = String(Math.floor(totalMins / 60) % 24).padStart(2, '0');
+      const m = String(totalMins % 60).padStart(2, '0');
+      return `${h}:${m}`;
+    }
+
+    // Fallback regex nếu Date() parse lỗi trên trình duyệt cũ
+    const tMatch = str.match(/T(\d{2}):(\d{2}):?(\d{2})?/);
+    if (tMatch) {
+      let utcH = parseInt(tMatch[1], 10);
+      let utcM = parseInt(tMatch[2], 10);
+      let utcS = tMatch[3] ? parseInt(tMatch[3], 10) : 0;
+      let totalSec = utcH * 3600 + utcM * 60 + utcS + (7 * 3600 + 6 * 60 + 30);
+      let roundedMin = Math.round(totalSec / 60);
+      let h = String(Math.floor(roundedMin / 60) % 24).padStart(2, '0');
+      let m = String(roundedMin % 60).padStart(2, '0');
       return `${h}:${m}`;
     }
   }
@@ -108,6 +125,29 @@ const ICON_BOY_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none
   localStorage.removeItem('ph_study_logs');
   localStorage.removeItem('ph_goals');
   localStorage.removeItem('ph_schedule');
+})();
+
+// Tự động làm sạch dữ liệu Thời khóa biểu trong LocalStorage (loại bỏ triệt để chuỗi 1899-12-30T... đã lưu cũ)
+(function sanitizeAllStoredSchedule() {
+  const users = ['sun', 'icarus', 'default'];
+  users.forEach(u => {
+    const key = `ph_${u}_schedule`;
+    try {
+      const raw = JSON.parse(localStorage.getItem(key) || '[]');
+      if (Array.isArray(raw) && raw.length > 0) {
+        let changed = false;
+        const cleaned = raw.map(s => {
+          const st = formatScheduleTime(s.start_time);
+          const et = formatScheduleTime(s.end_time);
+          if (st !== s.start_time || et !== s.end_time) changed = true;
+          return { ...s, start_time: st, end_time: et };
+        });
+        if (changed) {
+          localStorage.setItem(key, JSON.stringify(cleaned));
+        }
+      }
+    } catch(e) {}
+  });
 })();
 
 function loadUserData(user) {
