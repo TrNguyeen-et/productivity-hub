@@ -1271,40 +1271,89 @@ if (goalsList) {
 }
 
 // -------------------------------------------------------------
-// MODULE 5: SCHEDULE
+// MODULE 5: SCHEDULE (THÊM, SỬA, XOÁ KHUNG GIỜ THỜI KHÓA BIỂU)
 // -------------------------------------------------------------
 const scheduleForm = document.getElementById('scheduleForm');
-document.getElementById('btnAddSchedule').addEventListener('click', () => {
-  scheduleForm.classList.remove('hidden');
-});
-document.getElementById('btnCancelSchedule').addEventListener('click', () => {
-  scheduleForm.classList.add('hidden');
-});
+const scheduleFormTitle = document.getElementById('scheduleFormTitle');
+const btnCloseScheduleForm = document.getElementById('btnCloseScheduleForm');
+const btnAddSchedule = document.getElementById('btnAddSchedule');
+const btnCancelSchedule = document.getElementById('btnCancelSchedule');
+const btnSaveSchedule = document.getElementById('btnSaveSchedule');
 
-document.getElementById('btnSaveSchedule').addEventListener('click', () => {
-  const day = document.getElementById('schedDay').value;
-  const start_time = document.getElementById('schedStart').value;
-  const end_time = document.getElementById('schedEnd').value;
-  const type = document.getElementById('schedType').value;
-  const activity = document.getElementById('schedActivity').value.trim() || (type === 'Học' ? 'Buổi học' : 'Thời gian rảnh');
+let editingScheduleId = null;
 
-  const newSlot = {
-    id: 'sc_' + Date.now(),
-    user: activeUser,
-    day,
-    start_time,
-    end_time,
-    activity,
-    type
-  };
+function resetScheduleForm() {
+  editingScheduleId = null;
+  if (scheduleFormTitle) scheduleFormTitle.innerText = '+ Thêm khung giờ mới';
+  if (btnSaveSchedule) btnSaveSchedule.innerText = 'Lưu vào lịch';
+  document.getElementById('schedActivity').value = '';
+  document.getElementById('schedStart').value = '08:00';
+  document.getElementById('schedEnd').value = '10:00';
+  document.getElementById('schedType').value = 'Học';
+  if (scheduleForm) scheduleForm.classList.add('hidden');
+}
 
-  state.schedule.push(newSlot);
-  saveToStorage('schedule', state.schedule);
-  scheduleForm.classList.add('hidden');
-  renderSchedule();
+if (btnAddSchedule) {
+  btnAddSchedule.addEventListener('click', () => {
+    resetScheduleForm();
+    if (scheduleForm) scheduleForm.classList.remove('hidden');
+    document.getElementById('schedActivity').focus();
+  });
+}
 
-  sendToSheet('append', 'Schedule', { data: newSlot });
-});
+if (btnCancelSchedule) {
+  btnCancelSchedule.addEventListener('click', resetScheduleForm);
+}
+
+if (btnCloseScheduleForm) {
+  btnCloseScheduleForm.addEventListener('click', resetScheduleForm);
+}
+
+if (btnSaveSchedule) {
+  btnSaveSchedule.addEventListener('click', () => {
+    const day = document.getElementById('schedDay').value;
+    const start_time = document.getElementById('schedStart').value;
+    const end_time = document.getElementById('schedEnd').value;
+    const type = document.getElementById('schedType').value;
+    const activity = document.getElementById('schedActivity').value.trim() || (type === 'Học' ? 'Buổi học' : 'Thời gian rảnh');
+
+    if (editingScheduleId) {
+      // 1. Cập nhật khung giờ đã có (Sửa)
+      const index = state.schedule.findIndex(s => s.id === editingScheduleId);
+      if (index !== -1) {
+        state.schedule[index] = {
+          ...state.schedule[index],
+          day,
+          start_time,
+          end_time,
+          type,
+          activity
+        };
+        saveToStorage('schedule', state.schedule);
+        renderSchedule();
+        sendToSheet('update', 'Schedule', { id: editingScheduleId, data: state.schedule[index] });
+      }
+    } else {
+      // 2. Thêm khung giờ mới
+      const newSlot = {
+        id: 'sc_' + Date.now(),
+        user: activeUser,
+        day,
+        start_time,
+        end_time,
+        activity,
+        type
+      };
+
+      state.schedule.push(newSlot);
+      saveToStorage('schedule', state.schedule);
+      renderSchedule();
+      sendToSheet('append', 'Schedule', { data: newSlot });
+    }
+
+    resetScheduleForm();
+  });
+}
 
 function renderSchedule() {
   const days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
@@ -1313,17 +1362,70 @@ function renderSchedule() {
     if (!col) return;
     col.innerHTML = '';
     const slots = state.schedule.filter(s => s.day === day);
-    slots.sort((a, b) => a.start_time.localeCompare(b.start_time));
+    slots.sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
 
     slots.forEach(slot => {
       const div = document.createElement('div');
       div.className = `sched-slot type-${slot.type}`;
+      div.setAttribute('data-id', slot.id);
       div.innerHTML = `
-        <div style="font-weight: 700; font-size: 0.75rem;">${slot.start_time} - ${slot.end_time}</div>
-        <div>${escapeHtml(slot.activity)}</div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 4px;">
+          <span style="font-weight: 700; font-size: 0.75rem;">${slot.start_time} - ${slot.end_time}</span>
+          <div class="sched-slot-actions">
+            <button class="btn-sched-edit" data-id="${slot.id}" title="Sửa khung giờ">✏️</button>
+            <button class="btn-sched-del" data-id="${slot.id}" title="Xoá khung giờ">🗑️</button>
+          </div>
+        </div>
+        <div class="sched-activity-text">${escapeHtml(slot.activity)}</div>
       `;
       col.appendChild(div);
     });
+  });
+}
+
+// Bắt sự kiện Sửa và Xoá khung giờ trên lưới thời khóa biểu
+const daysGridContainer = document.querySelector('.stylish-days-grid');
+if (daysGridContainer) {
+  daysGridContainer.addEventListener('click', (e) => {
+    // 1. Nút Sửa khung giờ
+    const editBtn = e.target.closest('.btn-sched-edit');
+    if (editBtn) {
+      const id = editBtn.dataset.id;
+      const slot = state.schedule.find(s => s.id === id);
+      if (!slot) return;
+
+      editingScheduleId = id;
+      document.getElementById('schedDay').value = slot.day;
+      document.getElementById('schedStart').value = slot.start_time;
+      document.getElementById('schedEnd').value = slot.end_time;
+      document.getElementById('schedType').value = slot.type;
+      document.getElementById('schedActivity').value = slot.activity;
+
+      if (scheduleFormTitle) scheduleFormTitle.innerText = '✏️ Sửa khung giờ';
+      if (btnSaveSchedule) btnSaveSchedule.innerText = 'Lưu thay đổi';
+
+      if (scheduleForm) {
+        scheduleForm.classList.remove('hidden');
+        scheduleForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      document.getElementById('schedActivity').focus();
+      return;
+    }
+
+    // 2. Nút Xoá khung giờ
+    const delBtn = e.target.closest('.btn-sched-del');
+    if (delBtn) {
+      const id = delBtn.dataset.id;
+      const slot = state.schedule.find(s => s.id === id);
+      const slotDesc = slot ? `"${slot.activity}" (${slot.day} ${slot.start_time}-${slot.end_time})` : 'khung giờ này';
+      if (confirm(`Bạn có chắc muốn xoá ${slotDesc}?`)) {
+        state.schedule = state.schedule.filter(s => s.id !== id);
+        saveToStorage('schedule', state.schedule);
+        renderSchedule();
+        sendToSheet('delete', 'Schedule', { id });
+      }
+      return;
+    }
   });
 }
 
