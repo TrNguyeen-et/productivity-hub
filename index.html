@@ -1046,11 +1046,11 @@ body.dark-mode .lvl-4 { background: #68e870; }
                     <option value="Thứ 7">Thứ 7</option>
                     <option value="Chủ nhật">Chủ nhật</option>
                   </select>
-                  <input type="time" id="schedStart" value="08:00">
-                  <input type="time" id="schedEnd" value="10:00">
+                  <input type="text" id="schedStart" placeholder="Giờ bắt đầu (VD: 08:00 hoặc 18:00)" value="08:00" autocomplete="off">
+                  <input type="text" id="schedEnd" placeholder="Giờ kết thúc (VD: 10:00 hoặc 20:20)" value="10:00" autocomplete="off">
                   <select id="schedType" class="select-pill">
-                    <option value="Học">Giờ học</option>
-                    <option value="Rảnh">Giờ rảnh</option>
+                    <option value="Học">Giờ học (đen)</option>
+                    <option value="Rảnh">Giờ rảnh (xanh chanh)</option>
                   </select>
                   <input type="text" id="schedActivity" placeholder="Môn học / Hoạt động dự kiến" style="grid-column: span 2;">
                 </div>

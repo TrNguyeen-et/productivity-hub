@@ -18,6 +18,59 @@ function saveToStorage(baseKey, data) {
   localStorage.setItem(getUserKey(baseKey), JSON.stringify(data));
 }
 
+// Chuẩn hoá định dạng thời gian HH:mm (xử lý cả chuỗi ISO từ Google Sheets: 1899-12-30T10:53:30.000Z)
+function formatScheduleTime(val) {
+  if (!val) return '08:00';
+  const str = String(val).trim();
+
+  // Dạng chuẩn HH:mm (VD: 08:00, 18:00)
+  if (/^\d{2}:\d{2}$/.test(str)) {
+    return str;
+  }
+  if (/^\d{1}:\d{2}$/.test(str)) {
+    return '0' + str;
+  }
+
+  // Dạng chuỗi ISO hoặc Date từ Google Sheets (VD: 1899-12-30T10:53:30.000Z hoặc 1899-12-29T23:53:30.000Z)
+  if (str.includes('T') || (str.includes('-') && str.length > 10)) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      const h = String(d.getHours()).padStart(2, '0');
+      const m = String(d.getMinutes()).padStart(2, '0');
+      return `${h}:${m}`;
+    }
+  }
+
+  // Nếu người dùng gõ số đơn giản: e.g. "8" -> "08:00", "18" -> "18:00"
+  if (/^\d{1,2}$/.test(str)) {
+    return str.padStart(2, '0') + ':00';
+  }
+
+  const match = str.match(/^(\d{1,2}):(\d{1,2})/);
+  if (match) {
+    return match[1].padStart(2, '0') + ':' + match[2].padStart(2, '0');
+  }
+
+  return str;
+}
+
+// Chuẩn hoá ngày YYYY-MM-DD
+function formatLogDate(val) {
+  if (!val) return '';
+  const str = String(val).trim();
+  if (str.includes('T')) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    return str.split('T')[0];
+  }
+  return str;
+}
+
 // Monochrome SVG Icons for P1 (Girl) and P2 (Boy) - strictly black/white line art
 const ICON_GIRL_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M5.5 21v-2a5 5 0 0 1 10 0v2"/><path d="M16 6.5c1.8 1.2 2.8 3.2 2.2 5.5s-2.2 3.5-3.7 3.5"/></svg>`;
 const ICON_BOY_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4.5 4.5 0 0 1 9 0v2"/><path d="M9.5 4c1-1 3-1 4 0"/></svg>`;
@@ -92,7 +145,12 @@ function loadUserData(user) {
   state.notes = JSON.parse(localStorage.getItem(getUserKey('notes')) || '[]');
   state.studyLogs = JSON.parse(localStorage.getItem(getUserKey('study_logs')) || '[]');
   state.goals = JSON.parse(localStorage.getItem(getUserKey('goals')) || '[]');
-  state.schedule = JSON.parse(localStorage.getItem(getUserKey('schedule')) || '[]');
+  const rawSchedule = JSON.parse(localStorage.getItem(getUserKey('schedule')) || '[]');
+  state.schedule = rawSchedule.map(s => ({
+    ...s,
+    start_time: formatScheduleTime(s.start_time),
+    end_time: formatScheduleTime(s.end_time)
+  }));
 
   renderAll();
 
@@ -164,7 +222,13 @@ async function fetchAllFromSheet() {
         saveToStorage('study_logs', state.studyLogs);
       }
       if (json.data.Schedule) {
-        state.schedule = json.data.Schedule.filter(s => (!s.user || s.user === activeUser) && (!s.id || !['s1', 's2', 's3', 's4'].includes(s.id)));
+        state.schedule = json.data.Schedule
+          .filter(s => (!s.user || s.user === activeUser) && (!s.id || !['s1', 's2', 's3', 's4'].includes(s.id)))
+          .map(s => ({
+            ...s,
+            start_time: formatScheduleTime(s.start_time),
+            end_time: formatScheduleTime(s.end_time)
+          }));
         saveToStorage('schedule', state.schedule);
       }
       if (json.data.Goals) {
@@ -1309,11 +1373,24 @@ if (btnCloseScheduleForm) {
   btnCloseScheduleForm.addEventListener('click', resetScheduleForm);
 }
 
+const schedStartInput = document.getElementById('schedStart');
+const schedEndInput = document.getElementById('schedEnd');
+if (schedStartInput) {
+  schedStartInput.addEventListener('blur', () => {
+    schedStartInput.value = formatScheduleTime(schedStartInput.value);
+  });
+}
+if (schedEndInput) {
+  schedEndInput.addEventListener('blur', () => {
+    schedEndInput.value = formatScheduleTime(schedEndInput.value);
+  });
+}
+
 if (btnSaveSchedule) {
   btnSaveSchedule.addEventListener('click', () => {
     const day = document.getElementById('schedDay').value;
-    const start_time = document.getElementById('schedStart').value;
-    const end_time = document.getElementById('schedEnd').value;
+    const start_time = formatScheduleTime(document.getElementById('schedStart').value);
+    const end_time = formatScheduleTime(document.getElementById('schedEnd').value);
     const type = document.getElementById('schedType').value;
     const activity = document.getElementById('schedActivity').value.trim() || (type === 'Học' ? 'Buổi học' : 'Thời gian rảnh');
 
@@ -1362,15 +1439,17 @@ function renderSchedule() {
     if (!col) return;
     col.innerHTML = '';
     const slots = state.schedule.filter(s => s.day === day);
-    slots.sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+    slots.sort((a, b) => formatScheduleTime(a.start_time).localeCompare(formatScheduleTime(b.start_time)));
 
     slots.forEach(slot => {
+      const startTime = formatScheduleTime(slot.start_time);
+      const endTime = formatScheduleTime(slot.end_time);
       const div = document.createElement('div');
       div.className = `sched-slot type-${slot.type}`;
       div.setAttribute('data-id', slot.id);
       div.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 4px;">
-          <span style="font-weight: 700; font-size: 0.75rem;">${slot.start_time} - ${slot.end_time}</span>
+          <span style="font-weight: 700; font-size: 0.75rem;">${startTime} - ${endTime}</span>
           <div class="sched-slot-actions">
             <button class="btn-sched-edit" data-id="${slot.id}" title="Sửa khung giờ">✏️</button>
             <button class="btn-sched-del" data-id="${slot.id}" title="Xoá khung giờ">🗑️</button>
@@ -1396,8 +1475,8 @@ if (daysGridContainer) {
 
       editingScheduleId = id;
       document.getElementById('schedDay').value = slot.day;
-      document.getElementById('schedStart').value = slot.start_time;
-      document.getElementById('schedEnd').value = slot.end_time;
+      document.getElementById('schedStart').value = formatScheduleTime(slot.start_time);
+      document.getElementById('schedEnd').value = formatScheduleTime(slot.end_time);
       document.getElementById('schedType').value = slot.type;
       document.getElementById('schedActivity').value = slot.activity;
 
@@ -1417,7 +1496,7 @@ if (daysGridContainer) {
     if (delBtn) {
       const id = delBtn.dataset.id;
       const slot = state.schedule.find(s => s.id === id);
-      const slotDesc = slot ? `"${slot.activity}" (${slot.day} ${slot.start_time}-${slot.end_time})` : 'khung giờ này';
+      const slotDesc = slot ? `"${slot.activity}" (${slot.day} ${formatScheduleTime(slot.start_time)}-${formatScheduleTime(slot.end_time)})` : 'khung giờ này';
       if (confirm(`Bạn có chắc muốn xoá ${slotDesc}?`)) {
         state.schedule = state.schedule.filter(s => s.id !== id);
         saveToStorage('schedule', state.schedule);
@@ -1618,7 +1697,12 @@ if (activeUser) {
   state.notes = JSON.parse(localStorage.getItem(getUserKey('notes')) || '[]');
   state.studyLogs = JSON.parse(localStorage.getItem(getUserKey('study_logs')) || '[]');
   state.goals = JSON.parse(localStorage.getItem(getUserKey('goals')) || '[]');
-  state.schedule = JSON.parse(localStorage.getItem(getUserKey('schedule')) || '[]');
+  const rawSchedule = JSON.parse(localStorage.getItem(getUserKey('schedule')) || '[]');
+  state.schedule = rawSchedule.map(s => ({
+    ...s,
+    start_time: formatScheduleTime(s.start_time),
+    end_time: formatScheduleTime(s.end_time)
+  }));
   renderAll();
 }
 showWelcomePortal();
