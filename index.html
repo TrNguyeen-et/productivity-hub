@@ -160,6 +160,35 @@ body {
   stroke: currentColor;
   fill: none;
 }
+.btn-pill-danger {
+  background: #ef4444; color: #ffffff; border: none; font-weight: 700; cursor: pointer;
+}
+.btn-pill-danger:hover {
+  background: #dc2626;
+}
+.btn-pill-warning {
+  background: #f59e0b; color: #ffffff; border: none; font-weight: 700; cursor: pointer;
+}
+.btn-pill-warning:hover {
+  background: #d97706;
+}
+.badge-give-up {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+.study-log-item.abandoned-item {
+  opacity: 0.8;
+  border-left: 4px solid #ef4444;
+}
 .btn-pill-light {
   background: #ffffff !important;
   color: #121316 !important;
@@ -904,38 +933,32 @@ body.dark-mode .lvl-4 { background: #68e870; }
           <section id="tab-timer" class="tab-pane">
             <div class="card-white timer-container">
               <div class="timer-card-inner">
-                <div class="timer-mode-pills">
-                  <button class="mode-pill active" data-mode="pomodoro">Pomodoro 25m</button>
-                  <button class="mode-pill" data-mode="short-break">Nghỉ ngắn 5m</button>
-                  <button class="mode-pill" data-mode="stopwatch">Bấm giờ tự do</button>
+
+                <!-- Đồng hồ hiển thị (mặc định 00:00) -->
+                <div class="timer-clock-display" id="timerDisplay">00:00</div>
+
+                <!-- 1. Trạng thái Ban đầu: 2 nút Bắt đầu (đếm xuôi) & Pomodoro (25m) -->
+                <div id="timerActionIdle" class="timer-action-row">
+                  <button id="btnStartStopwatch" class="btn-pill btn-pill-dark btn-pill-lg">▶ Bắt đầu</button>
+                  <button id="btnStartPomodoro" class="btn-pill btn-pill-outline btn-pill-lg">🍅 Pomodoro</button>
                 </div>
 
-                <!-- Dòng điền "Đang học gì đấy" trước khi học -->
-                <div class="timer-subject-bar">
-                  <span class="timer-subject-label">Đang học :</span>
-                  <input type="text" id="timerSubject" class="timer-subject-input" placeholder="Điền môn học hoặc việc cần làm..." autocomplete="off">
+                <!-- 2. Trạng thái Đang đếm xuôi: Nút Tạm dừng & Kết thúc -->
+                <div id="timerActionStopwatch" class="timer-action-row hidden">
+                  <button id="btnStopwatchPause" class="btn-pill btn-pill-dark btn-pill-lg">⏸ Tạm dừng</button>
+                  <button id="btnStopwatchFinish" class="btn-pill btn-pill-outline btn-pill-lg">⏹ Kết thúc</button>
                 </div>
 
-                <div class="timer-clock-display" id="timerDisplay">25:00</div>
-
-                <div class="timer-action-row">
-                  <button id="btnTimerToggle" class="btn-pill btn-pill-dark btn-pill-lg">Bắt đầu học</button>
-                  <button id="btnTimerFinish" class="btn-pill btn-pill-dark btn-pill-lg" title="Kết thúc phiên và tự động lưu vào lịch sử & Sheet">Kết thúc</button>
-                  <button id="btnTimerReset" class="btn-pill btn-pill-outline btn-pill-lg">Đặt lại</button>
+                <!-- 3. Trạng thái Đang chạy Pomodoro: Nút Bỏ cuộc & Có việc gấp -->
+                <div id="timerActionPomodoro" class="timer-action-row hidden">
+                  <button id="btnPomodoroGiveUp" class="btn-pill btn-pill-danger btn-pill-lg" title="Bỏ cuộc phiên Pomodoro">⚠️ Bỏ cuộc</button>
+                  <button id="btnPomodoroUrgent" class="btn-pill btn-pill-warning btn-pill-lg" title="Tạm dừng do có việc gấp">⚡ Có việc gấp</button>
                 </div>
 
-                <div class="study-log-card mt-4">
-                  <div class="manual-log-row">
-                    <span class="manual-log-label">Đang học :</span>
-                    <input type="text" id="logSubject" placeholder="Điền môn học..." style="flex: 1; min-width: 140px;">
-                    <span class="manual-log-label">Thời gian :</span>
-                    <input type="number" id="logMinutes" placeholder="Số phút" min="1" style="max-width: 95px;">
-                    <button id="btnSaveLog" class="btn-pill btn-pill-dark">Lưu phiên</button>
+                <div class="study-history mt-6">
+                  <div class="block-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 style="font-size: 1.15rem; font-weight: 700; margin: 0;">Lịch sử học tập gần đây</h3>
                   </div>
-                </div>
-
-                <div class="study-history mt-4">
-                  <h3>Lịch sử học tập gần đây</h3>
                   <div id="studyLogsList" class="study-logs-stack"></div>
                 </div>
               </div>
@@ -1047,6 +1070,54 @@ body.dark-mode .lvl-4 { background: #68e870; }
 
       </main>
 
+    </div>
+  </div>
+
+  <!-- MODAL: KẾT THÚC PHIÊN HỌC (ĐIỀN THÔNG TIN ĐÃ HỌC) -->
+  <div id="finishSessionModal" class="modal-backdrop hidden">
+    <div class="modal-pill-box">
+      <div class="modal-head">
+        <h3 id="finishModalTitle">✨ Ghi nhận phiên học</h3>
+        <button id="btnCloseFinishModal" class="btn-close">×</button>
+      </div>
+      <p id="finishModalDurationDesc" class="modal-desc" style="font-weight: 600; color: var(--text-dark); margin-bottom: 1rem;">
+        Khoảng thời gian đã học: <strong>0 phút</strong>
+      </p>
+      
+      <label class="form-label">Khoảng đó bạn đã học gì?</label>
+      <input type="text" id="finishSubjectInput" class="modal-input" placeholder="VD: Toán giải tích, Lập trình React, Ôn thi...">
+
+      <label class="form-label" style="margin-top: 0.8rem;">Ghi chú thêm (tùy chọn):</label>
+      <input type="text" id="finishNotesInput" class="modal-input" placeholder="Ghi chú tóm tắt bài học, kết quả...">
+
+      <div class="modal-foot" style="margin-top: 1.5rem;">
+        <button id="btnCancelFinishModal" class="btn-pill btn-pill-outline">Hủy bỏ</button>
+        <button id="btnConfirmFinishModal" class="btn-pill btn-pill-dark">Lưu vào lịch sử</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CÓ VIỆC GẤP (ĐIỀN LÝ DO) -->
+  <div id="urgentReasonModal" class="modal-backdrop hidden">
+    <div class="modal-pill-box">
+      <div class="modal-head">
+        <h3>⚡ Có việc gấp</h3>
+        <button id="btnCloseUrgentModal" class="btn-close">×</button>
+      </div>
+      <p id="urgentModalDurationDesc" class="modal-desc" style="font-weight: 600; color: var(--text-dark); margin-bottom: 1rem;">
+        Bạn đã học được <strong>0 phút</strong> trước khi có việc bận.
+      </p>
+      
+      <label class="form-label">Môn học / Nội dung:</label>
+      <input type="text" id="urgentSubjectInput" class="modal-input" placeholder="VD: Pomodoro Toán, Tiếng Anh...">
+
+      <label class="form-label" style="margin-top: 0.8rem;">Lý do có việc gấp (Description):</label>
+      <input type="text" id="urgentReasonInput" class="modal-input" placeholder="VD: Nghe điện thoại công việc, việc gia đình đột xuất...">
+
+      <div class="modal-foot" style="margin-top: 1.5rem;">
+        <button id="btnCancelUrgentModal" class="btn-pill btn-pill-outline">Hủy</button>
+        <button id="btnConfirmUrgentModal" class="btn-pill btn-pill-dark">Lưu vào lịch sử</button>
+      </div>
     </div>
   </div>
 

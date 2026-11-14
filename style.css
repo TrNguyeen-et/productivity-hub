@@ -515,6 +515,36 @@ body.dark-mode .btn-pill-light {
   color: #121316 !important;
 }
 
+.btn-pill-danger {
+  background: #ef4444; color: #ffffff; border: none; font-weight: 700; cursor: pointer;
+}
+.btn-pill-danger:hover {
+  background: #dc2626;
+}
+.btn-pill-warning {
+  background: #f59e0b; color: #ffffff; border: none; font-weight: 700; cursor: pointer;
+}
+.btn-pill-warning:hover {
+  background: #d97706;
+}
+.badge-give-up {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+.study-log-item.abandoned-item {
+  opacity: 0.8;
+  border-left: 4px solid #ef4444;
+}
+
 .btn-pill-lg {
   padding: 0.85rem 2rem;
   font-size: 1rem;

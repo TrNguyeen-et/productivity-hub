@@ -204,7 +204,8 @@ document.getElementById('btnQuickAdd').addEventListener('click', () => {
 
 document.getElementById('btnStartQuickStudy').addEventListener('click', () => {
   switchTab('timer');
-  document.getElementById('btnTimerToggle').click();
+  const btn = document.getElementById('btnStartStopwatch');
+  if (btn) btn.click();
 });
 
 // -------------------------------------------------------------
@@ -213,9 +214,9 @@ document.getElementById('btnStartQuickStudy').addEventListener('click', () => {
 function renderDashboard() {
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // 1. Study Hours KPI
+  // 1. Study Hours KPI (chỉ tính phiên học hợp lệ, không tính phiên bỏ cuộc)
   const todayMinutes = state.studyLogs
-    .filter(log => log.date === todayStr)
+    .filter(log => log.date === todayStr && !log.abandoned && Number(log.duration_minutes || 0) > 0)
     .reduce((sum, item) => sum + Number(item.duration_minutes || 0), 0);
   
   const studyHours = (todayMinutes / 60).toFixed(1);
@@ -264,7 +265,7 @@ function renderGithubHeatmap() {
   let totalStudyMinutes = 0;
   
   state.studyLogs.forEach(log => {
-    if (!log.date) return;
+    if (!log.date || log.abandoned || !log.duration_minutes) return;
     const mins = Number(log.duration_minutes || 0);
     totalStudyMinutes += mins;
     activityMap[log.date] = (activityMap[log.date] || 0) + mins;
@@ -320,9 +321,9 @@ function renderWeeklyCapsuleChart() {
     targetDate.setDate(monday.getDate() + idx);
     const dateStr = targetDate.toISOString().split('T')[0];
 
-    // Minutes studied on this day
+    // Minutes studied on this day (không tính bỏ cuộc)
     const dayMins = state.studyLogs
-      .filter(l => l.date === dateStr)
+      .filter(l => l.date === dateStr && !l.abandoned && Number(l.duration_minutes || 0) > 0)
       .reduce((sum, l) => sum + Number(l.duration_minutes || 0), 0);
 
     // Completed tasks on this day
@@ -543,133 +544,255 @@ document.getElementById('notesGrid').addEventListener('click', (e) => {
 });
 
 // -------------------------------------------------------------
-// MODULE 4: STUDY TIMER & LOGS (RESILIENT TIMESTAMP ENGINE - NEVER FREEZES ON IPAD)
+// MODULE 4: STUDY TIMER & LOGS (STOPWATCH & POMODORO WITH URGENT & GIVE-UP FLOW)
 // -------------------------------------------------------------
 let timerInterval = null;
 let timerRunning = false;
-let timerSeconds = 25 * 60;
-let initialModeSeconds = 25 * 60;
-let timerTargetTimestamp = null;
-let timerStartTimestamp = null;
-let timerMode = 'pomodoro'; // 'pomodoro', 'short-break', or 'stopwatch'
-let accumulatedElapsedSeconds = 0;
+let timerSeconds = 0; // Mặc định là 0
+let timerMode = 'idle'; // 'idle', 'stopwatch', 'pomodoro'
+let stopwatchAccumulatedSec = 0;
 let lastResumeTimestamp = null;
+let pomodoroTargetTimestamp = null;
+let pendingElapsedMinutes = 0;
 
 const timerDisplay = document.getElementById('timerDisplay');
-const btnTimerToggle = document.getElementById('btnTimerToggle');
-const btnTimerFinish = document.getElementById('btnTimerFinish');
-const btnTimerReset = document.getElementById('btnTimerReset');
-const timerSubjectInput = document.getElementById('timerSubject');
-const logSubjectInput = document.getElementById('logSubject');
-const logMinutesInput = document.getElementById('logMinutes');
+const timerActionIdle = document.getElementById('timerActionIdle');
+const timerActionStopwatch = document.getElementById('timerActionStopwatch');
+const timerActionPomodoro = document.getElementById('timerActionPomodoro');
 
-// Đồng bộ 2 chiều giữa ô "Đang học" ở Timer và ô "Đang học" ở phần ghi nhận
-if (timerSubjectInput && logSubjectInput) {
-  timerSubjectInput.addEventListener('input', () => {
-    logSubjectInput.value = timerSubjectInput.value;
-  });
-  logSubjectInput.addEventListener('input', () => {
-    timerSubjectInput.value = logSubjectInput.value;
-  });
-}
+const btnStartStopwatch = document.getElementById('btnStartStopwatch');
+const btnStartPomodoro = document.getElementById('btnStartPomodoro');
+const btnStopwatchPause = document.getElementById('btnStopwatchPause');
+const btnStopwatchFinish = document.getElementById('btnStopwatchFinish');
+const btnPomodoroGiveUp = document.getElementById('btnPomodoroGiveUp');
+const btnPomodoroUrgent = document.getElementById('btnPomodoroUrgent');
+
+// Modals
+const finishSessionModal = document.getElementById('finishSessionModal');
+const btnCloseFinishModal = document.getElementById('btnCloseFinishModal');
+const btnCancelFinishModal = document.getElementById('btnCancelFinishModal');
+const btnConfirmFinishModal = document.getElementById('btnConfirmFinishModal');
+const finishSubjectInput = document.getElementById('finishSubjectInput');
+const finishNotesInput = document.getElementById('finishNotesInput');
+const finishModalDurationDesc = document.getElementById('finishModalDurationDesc');
+
+const urgentReasonModal = document.getElementById('urgentReasonModal');
+const btnCloseUrgentModal = document.getElementById('btnCloseUrgentModal');
+const btnCancelUrgentModal = document.getElementById('btnCancelUrgentModal');
+const btnConfirmUrgentModal = document.getElementById('btnConfirmUrgentModal');
+const urgentSubjectInput = document.getElementById('urgentSubjectInput');
+const urgentReasonInput = document.getElementById('urgentReasonInput');
+const urgentModalDurationDesc = document.getElementById('urgentModalDurationDesc');
 
 function updateTimerDisplay() {
+  if (!timerDisplay) return;
   const mins = Math.floor(timerSeconds / 60);
   const secs = timerSeconds % 60;
   timerDisplay.innerText = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
-function resetTimerForMode() {
+function resetToIdle() {
   clearInterval(timerInterval);
+  timerInterval = null;
   timerRunning = false;
-  accumulatedElapsedSeconds = 0;
+  timerMode = 'idle';
+  timerSeconds = 0;
+  stopwatchAccumulatedSec = 0;
   lastResumeTimestamp = null;
-  if (timerMode === 'pomodoro') {
-    initialModeSeconds = 25 * 60;
-    timerSeconds = 25 * 60;
-  } else if (timerMode === 'short-break') {
-    initialModeSeconds = 5 * 60;
-    timerSeconds = 5 * 60;
-  } else {
-    initialModeSeconds = 0;
-    timerSeconds = 0;
-  }
+  pomodoroTargetTimestamp = null;
+  pendingElapsedMinutes = 0;
+
   updateTimerDisplay();
+
+  if (timerActionIdle) timerActionIdle.classList.remove('hidden');
+  if (timerActionStopwatch) timerActionStopwatch.classList.add('hidden');
+  if (timerActionPomodoro) timerActionPomodoro.classList.add('hidden');
 }
 
 function tickTimer() {
   const now = Date.now();
-  if (timerMode === 'pomodoro' || timerMode === 'short-break') {
-    timerSeconds = Math.max(0, Math.round((timerTargetTimestamp - now) / 1000));
+  if (timerMode === 'stopwatch') {
+    // Đếm xuôi từ 0
+    let currentChunk = 0;
+    if (lastResumeTimestamp) {
+      currentChunk = Math.round((now - lastResumeTimestamp) / 1000);
+    }
+    timerSeconds = stopwatchAccumulatedSec + currentChunk;
     updateTimerDisplay();
+  } else if (timerMode === 'pomodoro') {
+    // Đếm ngược từ 25:00 về 0
+    timerSeconds = Math.max(0, Math.round((pomodoroTargetTimestamp - now) / 1000));
+    updateTimerDisplay();
+
     if (timerSeconds <= 0) {
       clearInterval(timerInterval);
       timerRunning = false;
-      alert('🔔 Hết giờ phiên học/nghỉ ngơi! Nhấn "Kết thúc" để tự động lưu vào Lịch sử & Sheet.');
-      btnTimerToggle.innerText = 'Bắt đầu học';
+      alert('🔔 Chúc mừng! Bạn đã hoàn thành trọn vẹn phiên Pomodoro 25 phút!');
+      pendingElapsedMinutes = 25;
+      
+      if (finishModalDurationDesc) {
+        finishModalDurationDesc.innerHTML = `Chúc mừng bạn đã hoàn thành trọn vẹn: <strong>25 phút</strong> Pomodoro!`;
+      }
+      if (finishSubjectInput) finishSubjectInput.value = 'Pomodoro';
+      if (finishNotesInput) finishNotesInput.value = 'Hoàn thành trọn vẹn 25 phút';
+      if (finishSessionModal) finishSessionModal.classList.remove('hidden');
+      if (finishSubjectInput) finishSubjectInput.focus();
     }
-  } else {
-    // Stopwatch
-    timerSeconds = Math.max(0, Math.round((now - timerStartTimestamp) / 1000));
-    updateTimerDisplay();
   }
 }
 
-// Nút Bắt đầu / Tạm dừng / Tiếp tục
-btnTimerToggle.addEventListener('click', () => {
-  if (timerRunning) {
-    // Tạm dừng (chỉ tạm dừng thời gian, không lưu)
+// 1. Chế độ ĐẾM XUÔI (Bấm "▶ Bắt đầu")
+if (btnStartStopwatch) {
+  btnStartStopwatch.addEventListener('click', () => {
+    timerMode = 'stopwatch';
+    timerSeconds = 0;
+    stopwatchAccumulatedSec = 0;
+    timerRunning = true;
+    lastResumeTimestamp = Date.now();
+
+    updateTimerDisplay();
+
+    if (timerActionIdle) timerActionIdle.classList.add('hidden');
+    if (timerActionStopwatch) timerActionStopwatch.classList.remove('hidden');
+    if (timerActionPomodoro) timerActionPomodoro.classList.add('hidden');
+    if (btnStopwatchPause) btnStopwatchPause.innerText = '⏸ Tạm dừng';
+
+    timerInterval = setInterval(tickTimer, 1000);
+  });
+}
+
+// Nút Tạm dừng / Tiếp tục đếm xuôi
+if (btnStopwatchPause) {
+  btnStopwatchPause.addEventListener('click', () => {
+    if (timerRunning) {
+      // Tạm dừng thời gian (không lưu)
+      clearInterval(timerInterval);
+      timerRunning = false;
+      btnStopwatchPause.innerText = '▶ Tiếp tục';
+      if (lastResumeTimestamp) {
+        stopwatchAccumulatedSec += Math.round((Date.now() - lastResumeTimestamp) / 1000);
+      }
+      lastResumeTimestamp = null;
+    } else {
+      // Tiếp tục đếm
+      timerRunning = true;
+      btnStopwatchPause.innerText = '⏸ Tạm dừng';
+      lastResumeTimestamp = Date.now();
+      timerInterval = setInterval(tickTimer, 1000);
+    }
+  });
+}
+
+// Nút Kết thúc đếm xuôi -> Hiện bảng điền đã học gì
+if (btnStopwatchFinish) {
+  btnStopwatchFinish.addEventListener('click', () => {
+    // Dừng timer
+    clearInterval(timerInterval);
+    if (timerRunning && lastResumeTimestamp) {
+      stopwatchAccumulatedSec += Math.round((Date.now() - lastResumeTimestamp) / 1000);
+    }
+    timerRunning = false;
+    lastResumeTimestamp = null;
+
+    const totalSec = stopwatchAccumulatedSec || timerSeconds;
+    if (totalSec < 5) {
+      alert('Phiên học mới diễn ra vài giây, chưa đủ thời gian ghi nhận (tối thiểu 1 phút).');
+      resetToIdle();
+      return;
+    }
+
+    pendingElapsedMinutes = Math.max(1, Math.round(totalSec / 60));
+
+    if (finishModalDurationDesc) {
+      finishModalDurationDesc.innerHTML = `Khoảng thời gian đã học: <strong>${pendingElapsedMinutes} phút</strong> (${totalSec} giây)`;
+    }
+    if (finishSubjectInput) finishSubjectInput.value = '';
+    if (finishNotesInput) finishNotesInput.value = '';
+    if (finishSessionModal) finishSessionModal.classList.remove('hidden');
+    if (finishSubjectInput) finishSubjectInput.focus();
+  });
+}
+
+// 2. Chế độ POMODORO ĐẾM NGƯỢC 25m (Bấm "🍅 Pomodoro")
+if (btnStartPomodoro) {
+  btnStartPomodoro.addEventListener('click', () => {
+    timerMode = 'pomodoro';
+    timerSeconds = 25 * 60; // 1500s
+    timerRunning = true;
+    pomodoroTargetTimestamp = Date.now() + 25 * 60 * 1000;
+
+    updateTimerDisplay();
+
+    if (timerActionIdle) timerActionIdle.classList.add('hidden');
+    if (timerActionStopwatch) timerActionStopwatch.classList.add('hidden');
+    if (timerActionPomodoro) timerActionPomodoro.classList.remove('hidden');
+
+    timerInterval = setInterval(tickTimer, 1000);
+  });
+}
+
+// Bấm "Có việc gấp" trong Pomodoro -> Mở bảng điền lý do
+if (btnPomodoroUrgent) {
+  btnPomodoroUrgent.addEventListener('click', () => {
     clearInterval(timerInterval);
     timerRunning = false;
-    btnTimerToggle.innerText = 'Tiếp tục';
-    if (lastResumeTimestamp) {
-      accumulatedElapsedSeconds += Math.round((Date.now() - lastResumeTimestamp) / 1000);
+
+    const elapsedSec = (25 * 60) - timerSeconds;
+    pendingElapsedMinutes = Math.max(1, Math.round(elapsedSec / 60));
+
+    if (urgentModalDurationDesc) {
+      urgentModalDurationDesc.innerHTML = `Bạn đã tập trung được <strong>${pendingElapsedMinutes} phút</strong> trước khi có việc bận.`;
     }
-    lastResumeTimestamp = null;
-  } else {
-    // Bắt đầu hoặc Tiếp tục
-    timerRunning = true;
-    btnTimerToggle.innerText = 'Tạm dừng';
-    const now = Date.now();
-    lastResumeTimestamp = now;
-    if (timerMode === 'pomodoro' || timerMode === 'short-break') {
-      timerTargetTimestamp = now + timerSeconds * 1000;
-    } else {
-      timerStartTimestamp = now - timerSeconds * 1000;
+    if (urgentSubjectInput) urgentSubjectInput.value = 'Pomodoro';
+    if (urgentReasonInput) urgentReasonInput.value = '';
+    if (urgentReasonModal) urgentReasonModal.classList.remove('hidden');
+    if (urgentReasonInput) urgentReasonInput.focus();
+  });
+}
+
+// Bấm "Bỏ cuộc" trong Pomodoro -> Ghi nhận dấu ! và description "Bỏ cuộc", KHÔNG tính giờ
+if (btnPomodoroGiveUp) {
+  btnPomodoroGiveUp.addEventListener('click', () => {
+    if (!confirm('Bạn có chắc muốn bỏ cuộc phiên Pomodoro này không? Phiên sẽ được đưa xuống lịch sử với dấu [!] và KHÔNG được tính vào tổng giờ học.')) {
+      return;
     }
-    timerInterval = setInterval(tickTimer, 1000);
-  }
-});
 
-// Nút Kết thúc (Tự động tính thời gian học và lưu ngay vào Lịch sử & Sheet)
-function finishAndSaveStudySession() {
-  let totalElapsedSec = accumulatedElapsedSeconds;
-  if (timerRunning && lastResumeTimestamp) {
-    totalElapsedSec += Math.round((Date.now() - lastResumeTimestamp) / 1000);
-  }
+    clearInterval(timerInterval);
+    timerRunning = false;
 
-  if (timerMode === 'pomodoro' || timerMode === 'short-break') {
-    const countdownDiff = initialModeSeconds - timerSeconds;
-    if (countdownDiff > totalElapsedSec) totalElapsedSec = countdownDiff;
-  } else {
-    if (timerSeconds > totalElapsedSec) totalElapsedSec = timerSeconds;
-  }
+    const newLog = {
+      id: 'lg_' + Date.now(),
+      user: activeUser,
+      subject: 'Pomodoro',
+      duration_minutes: 0,
+      abandoned: true,
+      notes: 'Bỏ cuộc',
+      date: new Date().toISOString().split('T')[0]
+    };
 
-  if (totalElapsedSec < 10) {
-    alert('Phiên học chưa bắt đầu hoặc chưa đủ thời gian để ghi nhận. Hãy nhấn "Bắt đầu học" trước nhé!');
-    return;
-  }
+    state.studyLogs.unshift(newLog);
+    saveToStorage('study_logs', state.studyLogs);
+    renderStudyLogs();
+    renderDashboard();
 
-  const elapsedMinutes = Math.max(1, Math.round(totalElapsedSec / 60));
-  const subject = (timerSubjectInput?.value || logSubjectInput?.value || '').trim() || 'Tự học';
+    sendToSheet('append', 'StudyLogs', { data: newLog });
+    resetToIdle();
+    alert('Đã ghi nhận phiên Pomodoro với trạng thái "Bỏ cuộc" (!) trong lịch sử học tập.');
+  });
+}
+
+// Xử lý Modal: Ghi nhận phiên học (Lưu thông tin)
+function saveFinishSession() {
+  const subject = (finishSubjectInput?.value || '').trim() || 'Tự học';
+  const notes = (finishNotesInput?.value || '').trim();
 
   const newLog = {
     id: 'lg_' + Date.now(),
     user: activeUser,
     subject,
-    duration_minutes: elapsedMinutes,
+    duration_minutes: pendingElapsedMinutes,
     date: new Date().toISOString().split('T')[0],
-    notes: ''
+    notes: notes || 'Hoàn thành phiên học'
   };
 
   state.studyLogs.unshift(newLog);
@@ -679,32 +802,56 @@ function finishAndSaveStudySession() {
 
   sendToSheet('append', 'StudyLogs', { data: newLog });
 
-  // Reset timer về trạng thái ban đầu
-  resetTimerForMode();
-  btnTimerToggle.innerText = 'Bắt đầu học';
-
-  alert(`🎉 Đã kết thúc và tự động ghi nhận phiên học: "${subject}" (${elapsedMinutes} phút)!`);
+  if (finishSessionModal) finishSessionModal.classList.add('hidden');
+  resetToIdle();
+  alert(`🎉 Đã lưu phiên học vào lịch sử: "${subject}" (${pendingElapsedMinutes} phút)!`);
 }
 
-if (btnTimerFinish) {
-  btnTimerFinish.addEventListener('click', finishAndSaveStudySession);
-}
-
-// Nút Đặt lại
-btnTimerReset.addEventListener('click', () => {
-  resetTimerForMode();
-  btnTimerToggle.innerText = 'Bắt đầu học';
+if (btnConfirmFinishModal) btnConfirmFinishModal.addEventListener('click', saveFinishSession);
+if (btnCloseFinishModal) btnCloseFinishModal.addEventListener('click', () => {
+  if (finishSessionModal) finishSessionModal.classList.add('hidden');
+  resetToIdle();
+});
+if (btnCancelFinishModal) btnCancelFinishModal.addEventListener('click', () => {
+  if (finishSessionModal) finishSessionModal.classList.add('hidden');
+  resetToIdle();
 });
 
-// Chuyển chế độ Pomodoro / Nghỉ ngắn / Bấm giờ tự do
-document.querySelectorAll('.mode-pill').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.mode-pill').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    timerMode = btn.dataset.mode;
-    resetTimerForMode();
-    btnTimerToggle.innerText = 'Bắt đầu học';
-  });
+// Xử lý Modal: Có việc gấp (Lưu lý do)
+function saveUrgentSession() {
+  const subject = (urgentSubjectInput?.value || '').trim() || 'Pomodoro';
+  const reason = (urgentReasonInput?.value || '').trim() || 'Có việc gấp';
+
+  const newLog = {
+    id: 'lg_' + Date.now(),
+    user: activeUser,
+    subject,
+    duration_minutes: pendingElapsedMinutes,
+    has_urgent_reason: true,
+    notes: reason,
+    date: new Date().toISOString().split('T')[0]
+  };
+
+  state.studyLogs.unshift(newLog);
+  saveToStorage('study_logs', state.studyLogs);
+  renderStudyLogs();
+  renderDashboard();
+
+  sendToSheet('append', 'StudyLogs', { data: newLog });
+
+  if (urgentReasonModal) urgentReasonModal.classList.add('hidden');
+  resetToIdle();
+  alert(`Đã lưu phiên học: "${subject}" (${pendingElapsedMinutes} phút) với lý do: "${reason}"!`);
+}
+
+if (btnConfirmUrgentModal) btnConfirmUrgentModal.addEventListener('click', saveUrgentSession);
+if (btnCloseUrgentModal) btnCloseUrgentModal.addEventListener('click', () => {
+  if (urgentReasonModal) urgentReasonModal.classList.add('hidden');
+  resetToIdle();
+});
+if (btnCancelUrgentModal) btnCancelUrgentModal.addEventListener('click', () => {
+  if (urgentReasonModal) urgentReasonModal.classList.add('hidden');
+  resetToIdle();
 });
 
 // Resilient iPad Handler: Never freezes when tab is in background or iPad screen locked!
@@ -719,53 +866,62 @@ window.addEventListener('focus', () => {
   }
 });
 
-// Lưu phiên thủ công
-document.getElementById('btnSaveLog').addEventListener('click', () => {
-  const subject = (logSubjectInput.value || timerSubjectInput?.value || '').trim() || 'Tự học';
-  const minutes = parseInt(logMinutesInput.value, 10);
-  if (!minutes || minutes <= 0) {
-    alert('Vui lòng nhập số phút đã học!');
-    return;
-  }
-
-  const newLog = {
-    id: 'lg_' + Date.now(),
-    user: activeUser,
-    subject,
-    duration_minutes: minutes,
-    date: new Date().toISOString().split('T')[0],
-    notes: ''
-  };
-
-  state.studyLogs.unshift(newLog);
-  saveToStorage('study_logs', state.studyLogs);
-  logMinutesInput.value = '';
-  renderStudyLogs();
-  renderDashboard();
-
-  sendToSheet('append', 'StudyLogs', { data: newLog });
-  alert(`Đã lưu phiên học: "${subject}" (${minutes} phút)!`);
-});
-
+// Render danh sách lịch sử học tập
 function renderStudyLogs() {
   const container = document.getElementById('studyLogsList');
   if (!container) return;
   container.innerHTML = '';
+
   if (state.studyLogs.length === 0) {
     container.innerHTML = `
       <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 1.5rem 0;">
-        Chưa có phiên học nào. Bắt đầu bấm giờ hoặc ghi nhận phiên học ở trên!
+        Chưa có phiên học nào. Bắt đầu bấm giờ học hoặc chọn Pomodoro ở trên!
       </div>
     `;
     return;
   }
-  state.studyLogs.slice(0, 8).forEach(log => {
+
+  state.studyLogs.slice(0, 10).forEach(log => {
     const item = document.createElement('div');
-    item.className = 'study-log-item';
-    item.innerHTML = `
-      <span><strong>${escapeHtml(log.subject)}</strong> &nbsp;·&nbsp; ${log.duration_minutes} phút</span>
-      <span class="log-date">${log.date}</span>
-    `;
+    item.className = `study-log-item ${log.abandoned ? 'abandoned-item' : ''}`;
+
+    if (log.abandoned) {
+      item.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.65rem;">
+          <span class="badge-give-up" title="Bỏ cuộc">!</span>
+          <div>
+            <strong style="color: var(--text-muted);">${escapeHtml(log.subject || 'Pomodoro')}</strong>
+            <span style="font-size: 0.78rem; color: #ef4444; margin-left: 0.35rem; font-weight: 700;">(Bỏ cuộc - Không tính giờ)</span>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">${escapeHtml(log.notes || 'Bỏ cuộc')}</div>
+          </div>
+        </div>
+        <span class="log-date">${log.date}</span>
+      `;
+    } else if (log.has_urgent_reason) {
+      item.innerHTML = `
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <span style="color: #f59e0b; font-size: 0.95rem;">⚡</span>
+            <strong>${escapeHtml(log.subject || 'Pomodoro')}</strong>
+            <span style="font-size: 0.82rem; color: var(--text-muted);">· ${log.duration_minutes} phút</span>
+          </div>
+          <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
+            Lý do: <em>${escapeHtml(log.notes || 'Có việc gấp')}</em>
+          </div>
+        </div>
+        <span class="log-date">${log.date}</span>
+      `;
+    } else {
+      item.innerHTML = `
+        <div>
+          <strong>${escapeHtml(log.subject)}</strong>
+          <span style="font-size: 0.82rem; color: var(--text-muted);">· ${log.duration_minutes} phút</span>
+          ${log.notes ? `<div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">${escapeHtml(log.notes)}</div>` : ''}
+        </div>
+        <span class="log-date">${log.date}</span>
+      `;
+    }
+
     container.appendChild(item);
   });
 }
