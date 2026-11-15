@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261115_01">
+  <link rel="stylesheet" href="style.css?v=20261115_02">
   <style>
 :root {
   --bg-canvas: #dbe3d9;
@@ -1038,12 +1038,27 @@ body.dark-mode .lvl-4 { background: #68e870; }
           <!-- TAB 5: SCHEDULE -->
           <section id="tab-schedule" class="tab-pane">
             <div class="card-white">
-              <div class="block-header">
-                <div>
-                  <h2 class="block-title">Thời khóa biểu & Lịch rảnh</h2>
-                  <p class="block-subtitle">Phân loại giờ Học (đen) và giờ Rảnh (xanh chanh)</p>
+              
+              <!-- SCHEDULE HEADER & WEEK NAVIGATOR -->
+              <div class="schedule-header-wrapper">
+                <div class="schedule-title-row">
+                  <h2 class="block-title" style="margin: 0;">Thời khóa biểu</h2>
+                  <button id="btnAddSchedule" class="btn-pill btn-pill-dark btn-sm">+ Thêm khung giờ</button>
                 </div>
-                <button id="btnAddSchedule" class="btn-pill btn-pill-dark btn-sm">+ Thêm khung giờ</button>
+
+                <div class="schedule-week-nav mt-3">
+                  <div class="week-nav-group">
+                    <button id="btnPrevWeek" class="week-nav-btn" title="Xem tuần trước">◀ Tuần trước</button>
+                    <button id="btnCurrentWeek" class="week-nav-btn active-current" title="Về tuần hiện tại">Tuần này</button>
+                    <button id="btnNextWeek" class="week-nav-btn" title="Xem tuần tiếp theo">Tuần sau ▶</button>
+                  </div>
+
+                  <div class="week-info-badge">
+                    <span>📅</span>
+                    <span id="schedWeekRangeLabel" class="week-range-text">15/11/2026 – 22/11/2026</span>
+                    <span id="schedWeekStatusTag" class="week-status-pill week-status-current">Tuần này</span>
+                  </div>
+                </div>
               </div>
 
               <div id="scheduleForm" class="schedule-composer card-soft mt-3 hidden">
@@ -1068,6 +1083,10 @@ body.dark-mode .lvl-4 { background: #68e870; }
                     <option value="Rảnh">Giờ rảnh (xanh chanh)</option>
                   </select>
                   <input type="text" id="schedActivity" placeholder="Môn học / Hoạt động dự kiến" style="grid-column: span 2;">
+                  <div class="mt-2" style="grid-column: span 2; display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="schedRepeat" checked>
+                    <label for="schedRepeat" style="font-size: 0.85rem; font-weight: 600; cursor: pointer; color: var(--text-dark);">Lặp lại hàng tuần (Áp dụng cho mọi tuần)</label>
+                  </div>
                 </div>
                 <div class="composer-actions mt-3">
                   <button id="btnSaveSchedule" class="btn-pill btn-pill-dark">Lưu vào lịch</button>
@@ -1172,6 +1191,6 @@ body.dark-mode .lvl-4 { background: #68e870; }
     </div>
   </div>
 
-  <script src="app.js?v=20261115_01"></script>
+  <script src="app.js?v=20261115_02"></script>
 </body>
 </html>

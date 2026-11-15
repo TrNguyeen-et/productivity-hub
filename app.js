@@ -1382,7 +1382,7 @@ if (goalsList) {
 }
 
 // -------------------------------------------------------------
-// MODULE 5: SCHEDULE (THÊM, SỬA, XOÁ KHUNG GIỜ THỜI KHÓA BIỂU)
+// MODULE 5: SCHEDULE (THỜI KHÓA BIỂU & ĐIỀU HƯỚNG TUẦN THỜI GIAN THỰC)
 // -------------------------------------------------------------
 const scheduleForm = document.getElementById('scheduleForm');
 const scheduleFormTitle = document.getElementById('scheduleFormTitle');
@@ -1390,8 +1390,79 @@ const btnCloseScheduleForm = document.getElementById('btnCloseScheduleForm');
 const btnAddSchedule = document.getElementById('btnAddSchedule');
 const btnCancelSchedule = document.getElementById('btnCancelSchedule');
 const btnSaveSchedule = document.getElementById('btnSaveSchedule');
+const btnPrevWeek = document.getElementById('btnPrevWeek');
+const btnCurrentWeek = document.getElementById('btnCurrentWeek');
+const btnNextWeek = document.getElementById('btnNextWeek');
 
 let editingScheduleId = null;
+let currentScheduleWeekOffset = 0; // 0: Tuần này, -1: Tuần trước, +1: Tuần sau
+
+// Tính toán chi tiết tuần theo thời gian thực (Bắt đầu từ tuần hiện tại)
+function getScheduleWeekDetails(offset = 0) {
+  const now = new Date();
+  const d = new Date(now);
+  d.setHours(0, 0, 0, 0);
+  const day = d.getDay(); // 0: Chủ nhật, 1: Thứ 2, ... 6: Thứ 7
+
+  // Mốc tuần: Nếu hôm nay là Chủ nhật (0), tính chu kỳ tuần mục tiêu bắt đầu từ Thứ 2 tiếp theo
+  // Khớp chính xác yêu cầu người dùng: 'như là tuần này là 15/11/2026 -> 22/11/2026'
+  const diffToMonday = day === 0 ? 1 : 1 - day;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diffToMonday + (offset * 7));
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const pad = n => String(n).padStart(2, '0');
+  const fmt = dt => pad(dt.getDate()) + '/' + pad(dt.getMonth() + 1) + '/' + dt.getFullYear();
+  const fmtShort = dt => pad(dt.getDate()) + '/' + pad(dt.getMonth() + 1);
+
+  // Nhãn tuần: Nếu là tuần này và hôm nay là CN (15/11), hiển thị 15/11/2026 – 22/11/2026
+  let startLabel = fmt(monday);
+  if (day === 0 && offset === 0) {
+    startLabel = fmt(d);
+  }
+  const label = `${startLabel} – ${fmt(sunday)}`;
+
+  const days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
+  const dayList = days.map((name, i) => {
+    const cur = new Date(monday);
+    cur.setDate(monday.getDate() + i);
+    return {
+      day: name,
+      dateShort: fmtShort(cur),
+      dateFull: fmt(cur),
+      isToday: cur.toDateString() === now.toDateString()
+    };
+  });
+
+  const weekYear = monday.getFullYear();
+  const firstJan = new Date(weekYear, 0, 1);
+  const weekNo = Math.ceil((((monday - firstJan) / 86400000) + firstJan.getDay() + 1) / 7);
+  const weekKey = `${weekYear}-W${pad(weekNo)}`;
+
+  let statusText = 'Tuần này';
+  let statusClass = 'week-status-current';
+  if (offset < 0) {
+    statusText = 'Quá khứ (Đã qua)';
+    statusClass = 'week-status-past';
+  } else if (offset > 0) {
+    statusText = 'Tuần sau';
+    statusClass = 'week-status-future';
+  }
+
+  return {
+    monday,
+    sunday,
+    offset,
+    label,
+    statusText,
+    statusClass,
+    dayList,
+    weekKey,
+    isPast: offset < 0
+  };
+}
 
 function resetScheduleForm() {
   editingScheduleId = null;
@@ -1401,11 +1472,17 @@ function resetScheduleForm() {
   document.getElementById('schedStart').value = '08:00';
   document.getElementById('schedEnd').value = '10:00';
   document.getElementById('schedType').value = 'Học';
+  const repeatBox = document.getElementById('schedRepeat');
+  if (repeatBox) repeatBox.checked = true;
   if (scheduleForm) scheduleForm.classList.add('hidden');
 }
 
 if (btnAddSchedule) {
   btnAddSchedule.addEventListener('click', () => {
+    const weekInfo = getScheduleWeekDetails(currentScheduleWeekOffset);
+    if (weekInfo.isPast) {
+      alert('Tuần này thuộc quá khứ nên lịch rảnh đã bị khóa. Bạn chỉ có thể thêm TKB cố định hoặc chuyển sang tuần hiện tại / tương lai.');
+    }
     resetScheduleForm();
     if (scheduleForm) scheduleForm.classList.remove('hidden');
     document.getElementById('schedActivity').focus();
@@ -1418,6 +1495,26 @@ if (btnCancelSchedule) {
 
 if (btnCloseScheduleForm) {
   btnCloseScheduleForm.addEventListener('click', resetScheduleForm);
+}
+
+// Bắt sự kiện chuyển tuần (Tuần trước, Tuần này, Tuần sau)
+if (btnPrevWeek) {
+  btnPrevWeek.addEventListener('click', () => {
+    currentScheduleWeekOffset--;
+    renderSchedule();
+  });
+}
+if (btnCurrentWeek) {
+  btnCurrentWeek.addEventListener('click', () => {
+    currentScheduleWeekOffset = 0;
+    renderSchedule();
+  });
+}
+if (btnNextWeek) {
+  btnNextWeek.addEventListener('click', () => {
+    currentScheduleWeekOffset++;
+    renderSchedule();
+  });
 }
 
 const schedStartInput = document.getElementById('schedStart');
@@ -1433,6 +1530,17 @@ if (schedEndInput) {
   });
 }
 
+const schedTypeInput = document.getElementById('schedType');
+if (schedTypeInput) {
+  schedTypeInput.addEventListener('change', () => {
+    const repeatBox = document.getElementById('schedRepeat');
+    if (repeatBox) {
+      // Giờ học thường lặp hàng tuần, giờ rảnh thường cho tuần cụ thể
+      repeatBox.checked = (schedTypeInput.value === 'Học');
+    }
+  });
+}
+
 if (btnSaveSchedule) {
   btnSaveSchedule.addEventListener('click', () => {
     const day = document.getElementById('schedDay').value;
@@ -1440,6 +1548,17 @@ if (btnSaveSchedule) {
     const end_time = formatScheduleTime(document.getElementById('schedEnd').value);
     const type = document.getElementById('schedType').value;
     const activity = document.getElementById('schedActivity').value.trim() || (type === 'Học' ? 'Buổi học' : 'Thời gian rảnh');
+    const repeat = document.getElementById('schedRepeat')?.checked ?? (type === 'Học');
+
+    const weekInfo = getScheduleWeekDetails(currentScheduleWeekOffset);
+
+    // Kiểm tra khóa: Nếu ở tuần cũ và chọn giờ Rảnh -> Không cho thêm
+    if (weekInfo.isPast && type === 'Rảnh') {
+      alert('Không thể thêm hoặc sửa lịch rảnh vào tuần trong quá khứ vì lịch tuần cũ đã bị khóa!');
+      return;
+    }
+
+    const week_key = repeat ? 'all' : weekInfo.weekKey;
 
     if (editingScheduleId) {
       // 1. Cập nhật khung giờ đã có (Sửa)
@@ -1451,7 +1570,8 @@ if (btnSaveSchedule) {
           start_time,
           end_time,
           type,
-          activity
+          activity,
+          week_key
         };
         saveToStorage('schedule', state.schedule);
         renderSchedule();
@@ -1466,7 +1586,8 @@ if (btnSaveSchedule) {
         start_time,
         end_time,
         activity,
-        type
+        type,
+        week_key
       };
 
       state.schedule.push(newSlot);
@@ -1480,12 +1601,59 @@ if (btnSaveSchedule) {
 }
 
 function renderSchedule() {
-  const days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
-  days.forEach(day => {
+  const weekInfo = getScheduleWeekDetails(currentScheduleWeekOffset);
+
+  // 1. Cập nhật nhãn tuần & trạng thái hiển thị
+  const weekLabelElem = document.getElementById('schedWeekRangeLabel');
+  if (weekLabelElem) weekLabelElem.innerText = weekInfo.label;
+
+  const statusTagElem = document.getElementById('schedWeekStatusTag');
+  if (statusTagElem) {
+    statusTagElem.innerText = weekInfo.statusText;
+    statusTagElem.className = `week-status-pill ${weekInfo.statusClass}`;
+  }
+
+  // Active state nút Tuần này
+  if (btnCurrentWeek) {
+    if (currentScheduleWeekOffset === 0) {
+      btnCurrentWeek.classList.add('active-current');
+    } else {
+      btnCurrentWeek.classList.remove('active-current');
+    }
+  }
+
+  // 2. Render từng ngày Thứ 2 -> Chủ nhật
+  weekInfo.dayList.forEach(dayItem => {
+    const day = dayItem.day;
     const col = document.querySelector(`.day-slot-card[data-day="${day}"] .day-slots`);
-    if (!col) return;
+    const card = document.querySelector(`.day-slot-card[data-day="${day}"]`);
+    if (!col || !card) return;
+
+    // Cập nhật tiêu đề ngày có ngày tháng thực tế: Thứ 2 (16/11)
+    const h3 = card.querySelector('h3');
+    if (h3) {
+      h3.innerHTML = `${day} <span class="day-date-sub">(${dayItem.dateShort})</span>`;
+    }
+
+    if (dayItem.isToday && currentScheduleWeekOffset === 0) {
+      card.classList.add('is-today');
+    } else {
+      card.classList.remove('is-today');
+    }
+
     col.innerHTML = '';
-    const slots = state.schedule.filter(s => s.day === day);
+
+    // Lọc các khung giờ của ngày này
+    const slots = state.schedule.filter(s => {
+      if (s.day !== day) return false;
+      // Nếu slot có week_key cụ thể thì phải khớp tuần đang xem
+      if (s.week_key && s.week_key !== 'all') {
+        return s.week_key === weekInfo.weekKey;
+      }
+      // Khung giờ lặp hoặc chưa gán week_key hiển thị ở mọi tuần
+      return true;
+    });
+
     slots.sort((a, b) => formatScheduleTime(a.start_time).localeCompare(formatScheduleTime(b.start_time)));
 
     slots.forEach(slot => {
@@ -1494,13 +1662,26 @@ function renderSchedule() {
       const div = document.createElement('div');
       div.className = `sched-slot type-${slot.type}`;
       div.setAttribute('data-id', slot.id);
-      div.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 4px;">
-          <span style="font-weight: 700; font-size: 0.75rem;">${startTime} - ${endTime}</span>
+
+      // QUY TẮC KHÓA: Nếu là tuần quá khứ (offset < 0) và loại là 'Rảnh' => KHÓA HOÀN TOÀN
+      const isLocked = weekInfo.isPast && slot.type === 'Rảnh';
+
+      let actionHtml = '';
+      if (isLocked) {
+        actionHtml = `<span class="badge-locked" title="Lịch rảnh của tuần cũ đã kết thúc và bị khóa tự động">🔒 Đã khóa</span>`;
+      } else {
+        actionHtml = `
           <div class="sched-slot-actions">
             <button class="btn-sched-edit" data-id="${slot.id}" title="Sửa khung giờ">✏️</button>
             <button class="btn-sched-del" data-id="${slot.id}" title="Xoá khung giờ">🗑️</button>
           </div>
+        `;
+      }
+
+      div.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 4px;">
+          <span style="font-weight: 700; font-size: 0.75rem;">${startTime} - ${endTime}</span>
+          ${actionHtml}
         </div>
         <div class="sched-activity-text">${escapeHtml(slot.activity)}</div>
       `;
@@ -1513,6 +1694,8 @@ function renderSchedule() {
 const daysGridContainer = document.querySelector('.stylish-days-grid');
 if (daysGridContainer) {
   daysGridContainer.addEventListener('click', (e) => {
+    const weekInfo = getScheduleWeekDetails(currentScheduleWeekOffset);
+
     // 1. Nút Sửa khung giờ
     const editBtn = e.target.closest('.btn-sched-edit');
     if (editBtn) {
@@ -1520,12 +1703,23 @@ if (daysGridContainer) {
       const slot = state.schedule.find(s => s.id === id);
       if (!slot) return;
 
+      // Bảo vệ: Nếu lịch rảnh ở tuần quá khứ thì không cho sửa
+      if (weekInfo.isPast && slot.type === 'Rảnh') {
+        alert('Lịch rảnh của tuần cũ đã bị khóa, không thể chỉnh sửa!');
+        return;
+      }
+
       editingScheduleId = id;
       document.getElementById('schedDay').value = slot.day;
       document.getElementById('schedStart').value = formatScheduleTime(slot.start_time);
       document.getElementById('schedEnd').value = formatScheduleTime(slot.end_time);
       document.getElementById('schedType').value = slot.type;
       document.getElementById('schedActivity').value = slot.activity;
+
+      const repeatBox = document.getElementById('schedRepeat');
+      if (repeatBox) {
+        repeatBox.checked = (!slot.week_key || slot.week_key === 'all');
+      }
 
       if (scheduleFormTitle) scheduleFormTitle.innerText = '✏️ Sửa khung giờ';
       if (btnSaveSchedule) btnSaveSchedule.innerText = 'Lưu thay đổi';
@@ -1543,6 +1737,14 @@ if (daysGridContainer) {
     if (delBtn) {
       const id = delBtn.dataset.id;
       const slot = state.schedule.find(s => s.id === id);
+      if (!slot) return;
+
+      // Bảo vệ: Nếu lịch rảnh ở tuần quá khứ thì không cho xóa
+      if (weekInfo.isPast && slot.type === 'Rảnh') {
+        alert('Lịch rảnh của tuần cũ đã bị khóa, không thể xóa!');
+        return;
+      }
+
       const slotDesc = slot ? `"${slot.activity}" (${slot.day} ${formatScheduleTime(slot.start_time)}-${formatScheduleTime(slot.end_time)})` : 'khung giờ này';
       if (confirm(`Bạn có chắc muốn xoá ${slotDesc}?`)) {
         state.schedule = state.schedule.filter(s => s.id !== id);
