@@ -71,10 +71,15 @@ function formatScheduleTime(val) {
   return str;
 }
 
-// Chuẩn hoá ngày YYYY-MM-DD
+// Chuẩn hoá ngày YYYY-MM-DD dùng cho biểu đồ Heatmap & khớp ngày
 function formatLogDate(val) {
   if (!val) return '';
   const str = String(val).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  const dmyMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmyMatch) {
+    return `${dmyMatch[3]}-${dmyMatch[2].padStart(2, '0')}-${dmyMatch[1].padStart(2, '0')}`;
+  }
   if (str.includes('T')) {
     const d = new Date(str);
     if (!isNaN(d.getTime())) {
@@ -84,6 +89,55 @@ function formatLogDate(val) {
       return `${year}-${month}-${day}`;
     }
     return str.split('T')[0];
+  }
+  return str;
+}
+
+// Chuẩn hoá ngày hiển thị giao diện đẹp gọn: DD/MM/YYYY (Loại bỏ triệt để chuỗi 2026-11-14T17:00:00.000Z)
+function formatDisplayDate(val) {
+  if (!val) return '';
+  const str = String(val).trim();
+
+  // 1. Nếu đã là dạng DD/MM/YYYY
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) {
+    return str;
+  }
+
+  // 2. Dạng YYYY-MM-DD (VD: 2026-11-14)
+  const ymdMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (ymdMatch) {
+    return `${ymdMatch[3]}/${ymdMatch[2]}/${ymdMatch[1]}`;
+  }
+
+  // 3. Chuỗi ISO từ Google Sheets (VD: 2026-11-14T17:00:00.000Z)
+  if (str.includes('T') || (str.includes('-') && str.length > 10)) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+
+    // Fallback regex
+    const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) {
+      return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+    }
+  }
+
+  return str;
+}
+
+// Xử lý tiêu đề Ghi chú (Nếu bị dán nhầm chuỗi ISO ngày tháng từ Google Sheets)
+function formatNoteTitle(title) {
+  if (!title) return 'Ghi chú';
+  const str = String(title).trim();
+  if (str.includes('T') && str.length > 10 && !isNaN(new Date(str).getTime())) {
+    return 'Ghi chú ngày ' + formatDisplayDate(str);
+  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    return 'Ghi chú ngày ' + formatDisplayDate(str);
   }
   return str;
 }
@@ -127,10 +181,38 @@ const ICON_BOY_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none
   localStorage.removeItem('ph_schedule');
 })();
 
-// Tự động làm sạch dữ liệu Thời khóa biểu trong LocalStorage (loại bỏ triệt để chuỗi 1899-12-30T... đã lưu cũ)
-(function sanitizeAllStoredSchedule() {
+// Tự động làm sạch dữ liệu Thời khóa biểu, Ghi chú & Lịch sử trong LocalStorage (loại bỏ triệt để chuỗi ISO cũ)
+(function sanitizeAllStoredData() {
   const users = ['sun', 'icarus', 'default'];
   users.forEach(u => {
+    // 1. Sanitize Notes
+    const noteKey = `ph_${u}_notes`;
+    try {
+      const raw = JSON.parse(localStorage.getItem(noteKey) || '[]');
+      if (Array.isArray(raw) && raw.length > 0) {
+        const cleaned = raw.map(n => ({
+          ...n,
+          title: formatNoteTitle(n.title),
+          updated_at: formatDisplayDate(n.updated_at)
+        }));
+        localStorage.setItem(noteKey, JSON.stringify(cleaned));
+      }
+    } catch(e) {}
+
+    // 2. Sanitize Study Logs
+    const logKey = `ph_${u}_study_logs`;
+    try {
+      const raw = JSON.parse(localStorage.getItem(logKey) || '[]');
+      if (Array.isArray(raw) && raw.length > 0) {
+        const cleaned = raw.map(l => ({
+          ...l,
+          date: formatDisplayDate(l.date)
+        }));
+        localStorage.setItem(logKey, JSON.stringify(cleaned));
+      }
+    } catch(e) {}
+
+    // 3. Sanitize Schedule
     const key = `ph_${u}_schedule`;
     try {
       const raw = JSON.parse(localStorage.getItem(key) || '[]');
@@ -181,9 +263,19 @@ function loadUserData(user) {
 
   // Load state for this user (strictly clean)
   state.apiUrl = localStorage.getItem(getUserKey('api_url')) || localStorage.getItem('ph_shared_api_url') || '';
-  state.todos = JSON.parse(localStorage.getItem(getUserKey('todos')) || '[]');
-  state.notes = JSON.parse(localStorage.getItem(getUserKey('notes')) || '[]');
-  state.studyLogs = JSON.parse(localStorage.getItem(getUserKey('study_logs')) || '[]');
+  state.todos = JSON.parse(localStorage.getItem(getUserKey('todos')) || '[]').map(t => ({
+    ...t,
+    created_at: formatDisplayDate(t.created_at)
+  }));
+  state.notes = JSON.parse(localStorage.getItem(getUserKey('notes')) || '[]').map(n => ({
+    ...n,
+    title: formatNoteTitle(n.title),
+    updated_at: formatDisplayDate(n.updated_at)
+  }));
+  state.studyLogs = JSON.parse(localStorage.getItem(getUserKey('study_logs')) || '[]').map(l => ({
+    ...l,
+    date: formatDisplayDate(l.date)
+  }));
   state.goals = JSON.parse(localStorage.getItem(getUserKey('goals')) || '[]');
   const rawSchedule = JSON.parse(localStorage.getItem(getUserKey('schedule')) || '[]');
   state.schedule = rawSchedule.map(s => ({
@@ -250,15 +342,31 @@ async function fetchAllFromSheet() {
     const json = await res.json();
     if (json.status === 'success' && json.data) {
       if (json.data.Todos) {
-        state.todos = json.data.Todos.filter(t => (!t.user || t.user === activeUser) && (!t.id || !t.id.startsWith('td_demo_')));
+        state.todos = json.data.Todos
+          .filter(t => (!t.user || t.user === activeUser) && (!t.id || !t.id.startsWith('td_demo_')))
+          .map(t => ({
+            ...t,
+            created_at: formatDisplayDate(t.created_at)
+          }));
         saveToStorage('todos', state.todos);
       }
       if (json.data.Notes) {
-        state.notes = json.data.Notes.filter(n => (!n.user || n.user === activeUser) && (!n.id || !n.id.startsWith('nt_demo_')));
+        state.notes = json.data.Notes
+          .filter(n => (!n.user || n.user === activeUser) && (!n.id || !n.id.startsWith('nt_demo_')))
+          .map(n => ({
+            ...n,
+            title: formatNoteTitle(n.title),
+            updated_at: formatDisplayDate(n.updated_at)
+          }));
         saveToStorage('notes', state.notes);
       }
       if (json.data.StudyLogs) {
-        state.studyLogs = json.data.StudyLogs.filter(l => (!l.user || l.user === activeUser) && (!l.id || !l.id.startsWith('lg_demo_')));
+        state.studyLogs = json.data.StudyLogs
+          .filter(l => (!l.user || l.user === activeUser) && (!l.id || !l.id.startsWith('lg_demo_')))
+          .map(l => ({
+            ...l,
+            date: formatDisplayDate(l.date)
+          }));
         saveToStorage('study_logs', state.studyLogs);
       }
       if (json.data.Schedule) {
@@ -372,12 +480,13 @@ function renderGithubHeatmap() {
     if (!log.date || log.abandoned || !log.duration_minutes) return;
     const mins = Number(log.duration_minutes || 0);
     totalStudyMinutes += mins;
-    activityMap[log.date] = (activityMap[log.date] || 0) + mins;
+    const key = formatLogDate(log.date);
+    activityMap[key] = (activityMap[key] || 0) + mins;
   });
 
   state.todos.forEach(todo => {
     if (todo.status === 'done') {
-      const d = todo.created_at || today.toISOString().split('T')[0];
+      const d = formatLogDate(todo.created_at) || today.toISOString().split('T')[0];
       activityMap[d] = (activityMap[d] || 0) + 25;
     }
   });
@@ -427,12 +536,12 @@ function renderWeeklyCapsuleChart() {
 
     // Minutes studied on this day (không tính bỏ cuộc)
     const dayMins = state.studyLogs
-      .filter(l => l.date === dateStr && !l.abandoned && Number(l.duration_minutes || 0) > 0)
+      .filter(l => formatLogDate(l.date) === dateStr && !l.abandoned && Number(l.duration_minutes || 0) > 0)
       .reduce((sum, l) => sum + Number(l.duration_minutes || 0), 0);
 
     // Completed tasks on this day
     const dayTasks = state.todos
-      .filter(t => t.status === 'done' && (t.completed_at === dateStr || t.created_at === targetDate.toLocaleDateString('vi-VN')))
+      .filter(t => t.status === 'done' && (formatLogDate(t.completed_at) === dateStr || formatLogDate(t.created_at) === dateStr))
       .length;
 
     // Relative height percentages (3h target = 100%, 4 todos target = 100%)
@@ -622,13 +731,15 @@ function renderNotes() {
   state.notes.forEach(note => {
     const card = document.createElement('div');
     card.className = 'note-box';
+    const displayTitle = formatNoteTitle(note.title);
+    const displayDate = formatDisplayDate(note.updated_at);
     card.innerHTML = `
       <div>
-        <h3>${escapeHtml(note.title)}</h3>
+        <h3>${escapeHtml(displayTitle)}</h3>
         <p>${escapeHtml(note.content)}</p>
       </div>
       <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #a1a1aa;">
-        <span>${note.updated_at || ''}</span>
+        <span>${displayDate || ''}</span>
         <button class="btn-trash" data-id="${note.id}">🗑️</button>
       </div>
     `;
@@ -1300,7 +1411,7 @@ function renderStudyLogs() {
     item.innerHTML = `
       ${mainHtml}
       <div style="display: flex; align-items: center; gap: 0.65rem;">
-        <span class="log-date">${log.date || ''}</span>
+        <span class="log-date">${formatDisplayDate(log.date)}</span>
         <button class="btn-delete-study-log" data-id="${log.id}" title="Xoá phiên học này" style="background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1.1rem; padding: 0 4px; border-radius: 4px; line-height: 1;">×</button>
       </div>
     `;
@@ -1942,9 +2053,19 @@ if (activeUser) {
   if (avatar) avatar.innerHTML = iconSvg;
 
   state.apiUrl = localStorage.getItem(getUserKey('api_url')) || localStorage.getItem('ph_shared_api_url') || '';
-  state.todos = JSON.parse(localStorage.getItem(getUserKey('todos')) || '[]');
-  state.notes = JSON.parse(localStorage.getItem(getUserKey('notes')) || '[]');
-  state.studyLogs = JSON.parse(localStorage.getItem(getUserKey('study_logs')) || '[]');
+  state.todos = JSON.parse(localStorage.getItem(getUserKey('todos')) || '[]').map(t => ({
+    ...t,
+    created_at: formatDisplayDate(t.created_at)
+  }));
+  state.notes = JSON.parse(localStorage.getItem(getUserKey('notes')) || '[]').map(n => ({
+    ...n,
+    title: formatNoteTitle(n.title),
+    updated_at: formatDisplayDate(n.updated_at)
+  }));
+  state.studyLogs = JSON.parse(localStorage.getItem(getUserKey('study_logs')) || '[]').map(l => ({
+    ...l,
+    date: formatDisplayDate(l.date)
+  }));
   state.goals = JSON.parse(localStorage.getItem(getUserKey('goals')) || '[]');
   const rawSchedule = JSON.parse(localStorage.getItem(getUserKey('schedule')) || '[]');
   state.schedule = rawSchedule.map(s => ({
