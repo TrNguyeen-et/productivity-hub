@@ -769,6 +769,7 @@ let stopwatchAccumulatedSec = 0;
 let lastResumeTimestamp = null;
 let pomodoroTargetTimestamp = null;
 let pendingElapsedMinutes = 0;
+let pendingTotalSeconds = 0;
 
 // iPad / Mobile Media Session (Thanh điều khiển Lock Screen & Chạy nền)
 const silentAudio = new Audio('silent.wav');
@@ -993,6 +994,7 @@ function resetToIdle() {
   lastResumeTimestamp = null;
   pomodoroTargetTimestamp = null;
   pendingElapsedMinutes = 0;
+  pendingTotalSeconds = 0;
 
   stopSilentAudio();
   autoExitPip();
@@ -1027,32 +1029,35 @@ function tickTimer() {
       clearInterval(timerInterval);
       timerRunning = false;
       stopSilentAudio();
-      
-      const newLog = {
-        id: 'lg_' + Date.now(),
-        user: activeUser,
-        subject: 'Pomodoro',
-        duration_minutes: 25,
-        date: new Date().toISOString().split('T')[0],
-        notes: 'Hoàn thành trọn vẹn 25 phút Pomodoro'
-      };
+      autoExitPip();
 
-      state.studyLogs.unshift(newLog);
-      saveToStorage('study_logs', state.studyLogs);
-      renderStudyLogs();
-      renderDashboard();
-
-      sendToSheet('append', 'StudyLogs', { data: newLog });
-      resetToIdle();
+      pendingTotalSeconds = 25 * 60;
+      pendingElapsedMinutes = 25;
 
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('🔔 Hoàn thành 25 phút Pomodoro!', {
-          body: 'Tuyệt vời! Phiên học đã được tự động lưu vào lịch sử.',
+          body: 'Tuyệt vời! Hãy ghi nhận nội dung bạn vừa học để lưu vào lịch sử.',
           icon: 'favicon.ico'
         });
       }
 
-      alert('🔔 Chúc mừng! Bạn đã hoàn thành trọn vẹn 25 phút Pomodoro (Đã tự động lưu vào lịch sử học tập)!');
+      // Mở modal để nhập môn học đã học trong 25 phút Pomodoro
+      if (finishModalTitle) finishModalTitle.innerText = '🎉 Hoàn thành Pomodoro 25 phút!';
+      if (finishModalDurationDesc) {
+        finishModalDurationDesc.innerHTML = 'Chúc mừng bạn đã tập trung trọn vẹn: <strong>25 phút</strong>';
+      }
+      if (finishSubjectInput) {
+        finishSubjectInput.value = '';
+        finishSubjectInput.placeholder = 'Bạn vừa học môn/chủ đề gì trong 25 phút này?';
+      }
+      if (finishNotesInput) {
+        finishNotesInput.value = '';
+        finishNotesInput.placeholder = 'Ghi chú thêm về phiên học 25 phút này (tùy chọn)...';
+      }
+      if (finishSessionModal) {
+        finishSessionModal.classList.remove('hidden');
+        setTimeout(() => { if (finishSubjectInput) finishSubjectInput.focus(); }, 100);
+      }
     }
   }
 }
@@ -1111,7 +1116,7 @@ if (btnStopwatchPause) {
   });
 }
 
-// Nút Kết thúc đếm xuôi -> Tự động lưu thời gian đã học vào lịch sử & Sheet
+// Nút Kết thúc đếm xuôi -> Mở Modal ghi nhận môn học và ghi chú
 if (btnStopwatchFinish) {
   btnStopwatchFinish.addEventListener('click', () => {
     // Dừng timer
@@ -1121,6 +1126,8 @@ if (btnStopwatchFinish) {
     }
     timerRunning = false;
     lastResumeTimestamp = null;
+    pauseSilentAudio();
+    autoExitPip();
 
     const totalSec = stopwatchAccumulatedSec || timerSeconds || 0;
     if (totalSec <= 0) {
@@ -1128,29 +1135,28 @@ if (btnStopwatchFinish) {
       return;
     }
 
-    // Tự động tính số phút đã học (nếu dưới 60s tính là 1 phút, ghi rõ số giây trong notes)
-    const durationMinutes = totalSec < 60 ? 1 : Math.max(1, Math.round(totalSec / 60));
-    const timeNote = totalSec < 60 ? `Tự học ${totalSec}s` : `Phiên học ${durationMinutes} phút`;
+    pendingTotalSeconds = totalSec;
+    // Tự động tính số phút đã học (nếu dưới 60s tính là 1 phút)
+    pendingElapsedMinutes = totalSec < 60 ? 1 : Math.max(1, Math.round(totalSec / 60));
 
-    const newLog = {
-      id: 'lg_' + Date.now(),
-      user: activeUser,
-      subject: 'Tự học',
-      duration_minutes: durationMinutes,
-      date: new Date().toISOString().split('T')[0],
-      notes: timeNote
-    };
-
-    // Tự động lưu ngay lập tức
-    state.studyLogs.unshift(newLog);
-    saveToStorage('study_logs', state.studyLogs);
-    renderStudyLogs();
-    renderDashboard();
-
-    sendToSheet('append', 'StudyLogs', { data: newLog });
-    resetToIdle();
-
-    alert(`🎉 Đã tự động lưu phiên học: ${durationMinutes} phút (${totalSec < 60 ? totalSec + 's' : durationMinutes + ' phút'}) vào lịch sử học tập!`);
+    // Hiển thị modal để người dùng nhập môn học / chủ đề đã học
+    if (finishModalTitle) finishModalTitle.innerText = '✨ Ghi nhận phiên học';
+    if (finishModalDurationDesc) {
+      const timeStr = totalSec < 60 ? `${pendingElapsedMinutes} phút (${totalSec}s)` : `${pendingElapsedMinutes} phút`;
+      finishModalDurationDesc.innerHTML = `Khoảng thời gian đã học: <strong>${timeStr}</strong>`;
+    }
+    if (finishSubjectInput) {
+      finishSubjectInput.value = '';
+      finishSubjectInput.placeholder = 'VD: Toán giải tích, Lập trình React, Ôn từ vựng...';
+    }
+    if (finishNotesInput) {
+      finishNotesInput.value = '';
+      finishNotesInput.placeholder = totalSec < 60 ? `Tự học ${totalSec}s` : 'Ghi chú tóm tắt bài học, kết quả...';
+    }
+    if (finishSessionModal) {
+      finishSessionModal.classList.remove('hidden');
+      setTimeout(() => { if (finishSubjectInput) finishSubjectInput.focus(); }, 100);
+    }
   });
 }
 
@@ -1248,16 +1254,22 @@ if (btnPomodoroGiveUp) {
 
 // Xử lý Modal: Ghi nhận phiên học (Lưu thông tin)
 function saveFinishSession() {
-  const subject = (finishSubjectInput?.value || '').trim() || 'Tự học';
-  const notes = (finishNotesInput?.value || '').trim();
+  const defaultSubject = timerMode === 'pomodoro' ? 'Pomodoro' : 'Tự học';
+  const defaultNotes = (pendingTotalSeconds && pendingTotalSeconds < 60)
+    ? `Tự học ${pendingTotalSeconds}s`
+    : (timerMode === 'pomodoro' ? 'Hoàn thành trọn vẹn 25 phút Pomodoro' : 'Hoàn thành phiên học');
+
+  const subject = (finishSubjectInput?.value || '').trim() || defaultSubject;
+  const notes = (finishNotesInput?.value || '').trim() || defaultNotes;
+  const duration = pendingElapsedMinutes || 1;
 
   const newLog = {
     id: 'lg_' + Date.now(),
     user: activeUser,
     subject,
-    duration_minutes: pendingElapsedMinutes,
+    duration_minutes: duration,
     date: new Date().toISOString().split('T')[0],
-    notes: notes || 'Hoàn thành phiên học'
+    notes
   };
 
   state.studyLogs.unshift(newLog);
@@ -1269,7 +1281,7 @@ function saveFinishSession() {
 
   if (finishSessionModal) finishSessionModal.classList.add('hidden');
   resetToIdle();
-  alert(`🎉 Đã lưu phiên học vào lịch sử: "${subject}" (${pendingElapsedMinutes} phút)!`);
+  alert(`🎉 Đã lưu phiên học vào lịch sử: "${subject}" (${duration} phút)!`);
 }
 
 if (btnConfirmFinishModal) btnConfirmFinishModal.addEventListener('click', saveFinishSession);
@@ -1281,6 +1293,23 @@ if (btnCancelFinishModal) btnCancelFinishModal.addEventListener('click', () => {
   if (finishSessionModal) finishSessionModal.classList.add('hidden');
   resetToIdle();
 });
+
+if (finishSubjectInput) {
+  finishSubjectInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveFinishSession();
+    }
+  });
+}
+if (finishNotesInput) {
+  finishNotesInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveFinishSession();
+    }
+  });
+}
 
 // Xử lý Modal: Có việc gấp (Lưu lý do)
 function saveUrgentSession() {
