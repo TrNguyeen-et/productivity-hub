@@ -1242,10 +1242,17 @@ function renderStudyLogs() {
   if (!container) return;
   container.innerHTML = '';
 
+  const countBadge = document.getElementById('historySessionCountBadge');
+  if (countBadge) {
+    countBadge.innerText = state.studyLogs.length > 0 ? `${state.studyLogs.length} phiên` : '0 phiên';
+  }
+
   if (state.studyLogs.length === 0) {
     container.innerHTML = `
-      <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 1.5rem 0;">
-        Chưa có phiên học nào. Bắt đầu bấm giờ học hoặc chọn Pomodoro ở trên!
+      <div style="text-align: center; color: var(--text-muted); font-size: 0.88rem; padding: 3rem 1rem;">
+        <div style="font-size: 2rem; margin-bottom: 0.75rem; opacity: 0.7;">⏳</div>
+        <div>Chưa có phiên học nào được ghi nhận.</div>
+        <div style="font-size: 0.8rem; margin-top: 0.35rem; opacity: 0.8;">Bắt đầu bấm giờ học hoặc chọn Pomodoro để lưu lại lịch sử!</div>
       </div>
     `;
     return;

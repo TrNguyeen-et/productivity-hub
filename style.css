@@ -895,8 +895,91 @@ body.dark-mode .btn-pill-light {
 }
 
 /* -------------------------------------------------------------
-   TIMER TAB
+   TIMER TAB (Modern Split Grid: Focus Zone & History)
    ------------------------------------------------------------- */
+.timer-split-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+.timer-focus-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 3.25rem 2rem;
+  min-height: 440px;
+}
+
+.timer-focus-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
+  background: var(--bg-card);
+  padding: 0.4rem 1rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-light);
+}
+
+body.dark-mode .timer-focus-tag {
+  background: #18191f;
+  border-color: #2d3039;
+  color: #a1a1aa;
+}
+
+.timer-focus-footer {
+  margin-top: 2.25rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.timer-history-card {
+  display: flex;
+  flex-direction: column;
+  padding: 1.75rem;
+  min-height: 440px;
+}
+
+.timer-history-card .study-logs-stack {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 360px;
+  padding-right: 4px;
+}
+
+.timer-history-card .study-logs-stack::-webkit-scrollbar {
+  width: 5px;
+}
+.timer-history-card .study-logs-stack::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: 999px;
+}
+body.dark-mode .timer-history-card .study-logs-stack::-webkit-scrollbar-thumb {
+  background: #2d3039;
+}
+
+@media (max-width: 900px) {
+  .timer-split-grid {
+    grid-template-columns: 1fr;
+  }
+  .timer-focus-card {
+    min-height: auto;
+    padding: 2.5rem 1.5rem;
+  }
+  .timer-history-card {
+    min-height: auto;
+  }
+}
+
 .timer-container {
   max-width: 600px;
   margin: 0 auto;

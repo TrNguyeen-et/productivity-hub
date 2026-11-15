@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261114_03">
+  <link rel="stylesheet" href="style.css?v=20261115_01">
   <style>
 :root {
   --bg-canvas: #dbe3d9;
@@ -931,8 +931,13 @@ body.dark-mode .lvl-4 { background: #68e870; }
 
           <!-- TAB 2: TIMER -->
           <section id="tab-timer" class="tab-pane">
-            <div class="card-white timer-container">
-              <div class="timer-card-inner">
+            <div class="timer-split-grid">
+
+              <!-- Cột trái: Đồng hồ đếm giờ & Pomodoro tập trung -->
+              <div class="card-white timer-focus-card">
+                <div class="timer-focus-tag">
+                  <span>🎯 Không gian tập trung</span>
+                </div>
 
                 <!-- Đồng hồ hiển thị (mặc định 00:00) -->
                 <div class="timer-clock-display" id="timerDisplay">00:00</div>
@@ -957,13 +962,23 @@ body.dark-mode .lvl-4 { background: #68e870; }
                   <button id="btnPomodoroCancel" class="btn-pill btn-pill-outline btn-pill-lg" title="Huỷ phiên Pomodoro không lưu">✕ Huỷ phiên</button>
                 </div>
 
-                <div class="study-history mt-6">
-                  <div class="block-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <h3 style="font-size: 1.15rem; font-weight: 700; margin: 0;">Lịch sử học tập gần đây</h3>
-                  </div>
-                  <div id="studyLogsList" class="study-logs-stack"></div>
+                <div class="timer-focus-footer">
+                  <span class="text-muted">Mỗi giây phút tập trung là một bước tiến bộ</span>
                 </div>
               </div>
+
+              <!-- Cột phải: Lịch sử học tập gần đây tách biệt trang nhã -->
+              <div class="card-white timer-history-card">
+                <div class="block-header">
+                  <div>
+                    <h2 class="block-title">Lịch sử học tập</h2>
+                    <p class="block-subtitle">Ghi nhận các phiên học & Pomodoro</p>
+                  </div>
+                  <span class="badge-pill" id="historySessionCountBadge">Gần đây</span>
+                </div>
+                <div id="studyLogsList" class="study-logs-stack"></div>
+              </div>
+
             </div>
           </section>
 
@@ -1157,6 +1172,6 @@ body.dark-mode .lvl-4 { background: #68e870; }
     </div>
   </div>
 
-  <script src="app.js?v=20261114_03"></script>
+  <script src="app.js?v=20261115_01"></script>
 </body>
 </html>
