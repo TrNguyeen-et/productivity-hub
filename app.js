@@ -403,6 +403,7 @@ function switchTab(tabId) {
   document.querySelectorAll('.tab-pane').forEach(p => {
     p.classList.toggle('active', p.id === `tab-${tabId}`);
   });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
@@ -1777,6 +1778,11 @@ function renderSchedule() {
 
     if (dayItem.isToday && currentScheduleWeekOffset === 0) {
       card.classList.add('is-today');
+      if (window.innerWidth <= 768) {
+        setTimeout(() => {
+          card.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }, 120);
+      }
     } else {
       card.classList.remove('is-today');
     }

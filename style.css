@@ -1567,14 +1567,25 @@ body.dark-mode .lvl-2 { background: #2e7a33; }
 body.dark-mode .lvl-3 { background: #46b44c; }
 body.dark-mode .lvl-4 { background: #68e870; }
 
-/* Responsive on iPad & Mobile */
+.schedule-swipe-hint {
+  display: none;
+}
+
+/* -------------------------------------------------------------
+   RESPONSIVE DESIGN FOR IPAD, TABLET & MOBILE
+   ------------------------------------------------------------- */
 @media (max-width: 992px) {
   body {
     padding: 0;
   }
+  .canvas-wrapper {
+    max-width: 100%;
+  }
   .app-frame {
     border-radius: 0;
     min-height: 100vh;
+    border: none;
+    box-shadow: none;
   }
   .kpi-grid {
     grid-template-columns: 1fr;
@@ -1582,13 +1593,386 @@ body.dark-mode .lvl-4 { background: #68e870; }
   .dashboard-split-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* MOBILE PHONES & NARROW SCREENS (<= 768px) */
+@media (max-width: 768px) {
+  body {
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  .canvas-wrapper {
+    width: 100%;
+    margin: 0;
+  }
+
+  .app-frame {
+    flex-direction: column;
+    min-height: 100vh;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  /* 1. THANH ĐIỀU HƯỚNG CỐ ĐỊNH DƯỚI ĐÁY MÀN HÌNH (BOTTOM NAVIGATION BAR) */
   .sidebar-pill {
-    display: none; /* Mobile layout uses top subnav */
+    display: flex !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: auto;
+    min-height: 56px;
+    margin: 0;
+    border-radius: 20px 20px 0 0;
+    padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom, 4px)) 0.5rem;
+    background: #141416;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
+    z-index: 9999;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
   }
+
+  body.dark-mode .sidebar-pill {
+    background: #111215;
+    border-top: 1px solid #272830;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.7);
+  }
+
+  .sidebar-top {
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  .brand-logo {
+    display: none;
+  }
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    justify-content: space-around;
+    align-items: center;
+    gap: 0;
+  }
+
+  .sidebar-bottom {
+    display: none;
+  }
+
+  .nav-item {
+    width: 48px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+  }
+
+  .nav-item.active {
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  }
+
+  body.dark-mode .nav-item.active {
+    background: #272a33;
+    color: #ffffff;
+  }
+
+  /* 2. MAIN CONTENT STAGE */
   .main-stage {
-    padding: 1.5rem 1rem;
+    padding: 1rem 0.85rem calc(72px + env(safe-area-inset-bottom, 12px)) 0.85rem;
+    width: 100%;
+    max-width: 100vw;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
+
+  /* 3. DASHBOARD HEADER ON MOBILE */
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.65rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .header-title-box {
+    width: 100%;
+  }
+
   .main-heading {
-    font-size: 1.85rem;
+    font-size: 1.45rem;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+  }
+
+  .header-actions .btn-pill,
+  .header-actions .sync-pill-badge {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.76rem;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+
+  /* 4. CARDS & SECTIONS */
+  .card-white,
+  .card-blue-soft,
+  .card-lime-soft,
+  .card-soft {
+    padding: 1.25rem 1rem;
+    border-radius: 18px;
+  }
+
+  .kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .dashboard-split-grid {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
+
+  .block-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.65rem;
+  }
+
+  .block-title {
+    font-size: 1.1rem;
+  }
+
+  .block-subtitle {
+    font-size: 0.8rem;
+  }
+
+  /* 5. TIMER TAB ON MOBILE */
+  .timer-stacked-container {
+    gap: 1rem;
+  }
+
+  .timer-focus-card {
+    padding: 1.75rem 1rem 1.5rem;
+  }
+
+  .timer-clock-display {
+    font-size: clamp(3.6rem, 15vw, 5rem);
+    letter-spacing: -0.02em;
+    margin: 1.25rem 0;
+  }
+
+  .timer-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .timer-action-row .btn-pill {
+    padding: 0.65rem 1.2rem;
+    font-size: 0.9rem;
+    flex: 1 1 calc(50% - 0.5rem);
+    min-width: 120px;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .timer-action-row .btn-pill:only-child {
+    flex: 0 1 auto;
+  }
+
+  /* 6. TODO TAB ON MOBILE */
+  .todo-filter-pills {
+    width: 100%;
+    display: flex;
+    gap: 0.35rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.25rem;
+  }
+
+  .filter-pill {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+
+  .todo-create-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin: 1rem 0;
+  }
+
+  .todo-create-bar input {
+    grid-column: span 2;
+  }
+
+  .todo-create-bar select,
+  .todo-create-bar button {
+    width: 100%;
+  }
+
+  .stylish-todo-item {
+    padding: 0.75rem 0.85rem;
+    font-size: 0.88rem;
+  }
+
+  /* 7. NOTES TAB ON MOBILE */
+  .stylish-notes-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .note-box {
+    padding: 1rem;
+  }
+
+  /* 8. SCHEDULE / TIMETABLE TAB ON MOBILE */
+  .schedule-week-nav {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+    padding: 0.75rem 0.85rem;
+  }
+
+  .week-nav-group {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .week-nav-btn {
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .week-info-badge {
+    justify-content: center;
+    font-size: 0.8rem;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .schedule-swipe-hint {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.6rem;
+    margin-bottom: -0.2rem;
+    opacity: 0.85;
+  }
+
+  .schedule-form-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .schedule-form-grid input,
+  .schedule-form-grid select,
+  .schedule-form-grid div {
+    grid-column: span 1 !important;
+  }
+
+  /* VUỐT NGANG (SWIPE CAROUSEL) CHO CÁC NGÀY TRONG TUẦN TRÊN MOBILE */
+  .stylish-days-grid {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 0.75rem;
+    padding: 0.5rem 0.15rem 0.85rem;
+    scrollbar-width: thin;
+  }
+
+  .day-slot-card {
+    flex: 0 0 85%;
+    max-width: 320px;
+    scroll-snap-align: center;
+    border-radius: 18px;
+    padding: 1rem 0.85rem;
+  }
+
+  .day-slot-card.is-today {
+    border: 2px solid #10b981;
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2);
+  }
+
+  /* 9. MODALS ON MOBILE */
+  .modal-pill-box {
+    width: 92%;
+    max-width: 94vw;
+    padding: 1.35rem 1.1rem;
+    border-radius: 20px;
+    max-height: 88vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal-head h3 {
+    font-size: 1.15rem;
+  }
+
+  .modal-foot {
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+  }
+
+  .modal-foot button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* 10. ARTISTIC GATEWAY ON MOBILE */
+  .gateway-white-layout,
+  .gateway-dark-layout {
+    padding: 2vh 1rem 2vh;
+    justify-content: space-between;
+  }
+
+  .icarus-white-img {
+    max-height: 50vh;
+    max-width: 88vw;
+  }
+
+  .sun-obj {
+    max-height: 22vh;
+    max-width: 82vw;
+  }
+
+  .icarus-dark-obj {
+    max-height: 38vh;
+    max-width: 85vw;
+  }
+
+  .quote-text {
+    font-size: 1.15rem;
+    line-height: 1.45;
   }
 }
