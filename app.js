@@ -840,8 +840,12 @@ let pendingElapsedMinutes = 0;
 let pendingTotalSeconds = 0;
 
 // iPad / Mobile Media Session (Thanh điều khiển Lock Screen & Chạy nền giống Spotify)
-const silentAudio = new Audio('silent.wav');
+const silentAudio = new Audio(new URL('silent.wav', window.location.href).href);
 silentAudio.loop = true;
+silentAudio.volume = 1.0;
+silentAudio.preload = 'auto';
+silentAudio.setAttribute('playsinline', '');
+silentAudio.setAttribute('webkit-playsinline', '');
 
 // Web Audio API Keep-Alive (Dự phòng vững chắc cho iOS Safari khi tắt màn hình)
 let audioCtx = null;
@@ -915,18 +919,24 @@ function updateMediaSession() {
   if (!('mediaSession' in navigator)) return;
   const modeName = timerMode === 'pomodoro' ? 'Pomodoro' : 'Tự học';
   const timeStr = timerDisplay ? timerDisplay.innerText : '00:00';
+  const statusPrefix = timerRunning ? '▶ ' : '⏸ ';
 
   try {
+    const iconUrl = new URL('favicon.png', window.location.href).href;
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: `${modeName}: ${timeStr}`,
-      artist: 'I wanna be better (Đang chạy nền)',
-      album: '⏭ Kết thúc & Lưu | ⏮ Huỷ | ⏸ Tạm dừng',
+      title: `${statusPrefix}${modeName}: ${timeStr}`,
+      artist: timerRunning ? 'I wanna be better (Đang đếm giờ)' : 'I wanna be better (Đang tạm dừng)',
+      album: '⏸ Tạm dừng | ⏭ Kết thúc & Lưu | ⏮ Huỷ',
       artwork: [
-        { src: 'favicon.png', sizes: '96x96', type: 'image/png' },
-        { src: 'favicon.png', sizes: '192x192', type: 'image/png' },
-        { src: 'favicon.png', sizes: '512x512', type: 'image/png' }
+        { src: iconUrl, sizes: '96x96', type: 'image/png' },
+        { src: iconUrl, sizes: '192x192', type: 'image/png' },
+        { src: iconUrl, sizes: '512x512', type: 'image/png' }
       ]
     });
+
+    if ('playbackState' in navigator.mediaSession) {
+      navigator.mediaSession.playbackState = timerRunning ? 'playing' : (timerMode === 'idle' ? 'none' : 'paused');
+    }
 
     if ('setPositionState' in navigator.mediaSession) {
       if (timerMode === 'pomodoro') {
@@ -937,9 +947,9 @@ function updateMediaSession() {
           position: Math.min(25 * 60, elapsed)
         });
       } else if (timerMode === 'stopwatch') {
-        const totalSec = Math.max(1, stopwatchAccumulatedSec || timerSeconds || 1);
+        const totalSec = Math.max(1, (stopwatchAccumulatedSec || 0) + (lastResumeTimestamp ? Math.round((Date.now() - lastResumeTimestamp) / 1000) : 0));
         navigator.mediaSession.setPositionState({
-          duration: Math.max(totalSec, 3600),
+          duration: Math.max(totalSec + 60, 3600),
           playbackRate: timerRunning ? 1 : 0,
           position: totalSec
         });
@@ -948,50 +958,157 @@ function updateMediaSession() {
   } catch (e) {}
 }
 
+function finishSessionFromMediaControl() {
+  if (timerMode === 'idle') return;
+
+  clearInterval(timerInterval);
+  timerInterval = null;
+
+  let totalSec = 0;
+  if (timerMode === 'stopwatch') {
+    totalSec = stopwatchAccumulatedSec;
+    if (timerRunning && lastResumeTimestamp) {
+      totalSec += Math.round((Date.now() - lastResumeTimestamp) / 1000);
+    }
+  } else if (timerMode === 'pomodoro') {
+    totalSec = 25 * 60;
+  }
+
+  timerRunning = false;
+  lastResumeTimestamp = null;
+  pauseSilentAudio();
+  autoExitPip();
+
+  if (totalSec < 5) {
+    resetToIdle();
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification('✕ Đã huỷ phiên học', {
+          body: 'Thời gian dưới 5 giây nên không lưu vào lịch sử.',
+          icon: new URL('favicon.png', window.location.href).href
+        });
+      } catch (e) {}
+    }
+    return;
+  }
+
+  const duration = totalSec < 60 ? 1 : Math.max(1, Math.round(totalSec / 60));
+  const now = new Date();
+  const endTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const startTime = new Date(now.getTime() - duration * 60 * 1000);
+  const startTimeStr = `${String(startTime.getHours()).padStart(2, '0')}:${String(startTime.getMinutes()).padStart(2, '0')}`;
+
+  const subject = timerMode === 'pomodoro' ? 'Pomodoro' : 'Tự học (Màn hình khoá)';
+  const notes = timerMode === 'pomodoro'
+    ? 'Hoàn thành 25 phút Pomodoro từ màn hình khoá'
+    : `Hoàn thành phiên ${duration} phút (${totalSec}s) từ điều khiển màn hình khoá`;
+
+  const newLog = {
+    id: 'lg_' + Date.now(),
+    user: activeUser,
+    subject,
+    duration_minutes: duration,
+    start_time: startTimeStr,
+    end_time: endTimeStr,
+    date: formatDisplayDate(new Date()),
+    notes
+  };
+
+  state.studyLogs.unshift(newLog);
+  saveToStorage('study_logs', state.studyLogs);
+  renderStudyLogs();
+  renderDashboard();
+  sendToSheet('append', 'StudyLogs', { data: newLog });
+
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification('🎉 Đã ghi nhận phiên học!', {
+        body: `Tuyệt vời! Đã lưu: "${subject}" (${duration} phút, ${startTimeStr} – ${endTimeStr}) vào lịch sử.`,
+        icon: new URL('favicon.png', window.location.href).href
+      });
+    } catch (e) {}
+  }
+
+  if ('mediaSession' in navigator) {
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: `✅ Đã lưu: ${duration} phút (${subject})`,
+        artist: 'I wanna be better',
+        album: 'Phiên học đã kết thúc và được lưu thành công',
+        artwork: [
+          { src: new URL('favicon.png', window.location.href).href, sizes: '192x192', type: 'image/png' }
+        ]
+      });
+      navigator.mediaSession.playbackState = 'none';
+    } catch (e) {}
+  }
+
+  resetToIdle();
+}
+
+function cancelSessionFromMediaControl() {
+  resetToIdle();
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification('✕ Đã huỷ phiên học', {
+        body: 'Phiên học đã được đặt lại về 00:00.',
+        icon: new URL('favicon.png', window.location.href).href
+      });
+    } catch (e) {}
+  }
+}
+
 function initMediaSessionHandlers() {
   if (!('mediaSession' in navigator)) return;
 
   const actionMap = {
     play: () => {
-      if (!timerRunning && timerMode === 'stopwatch' && btnStopwatchPause) {
-        btnStopwatchPause.click();
-      } else {
-        playSilentAudio();
+      if (!timerRunning && timerMode !== 'idle') {
+        if (timerMode === 'stopwatch' && btnStopwatchPause) {
+          btnStopwatchPause.click();
+        } else {
+          timerRunning = true;
+          lastResumeTimestamp = Date.now();
+          playSilentAudio();
+          timerInterval = setInterval(tickTimer, 1000);
+          updateTimerDisplay();
+          updateMediaSession();
+        }
+      } else if (timerMode === 'idle' && btnStartStopwatch) {
+        btnStartStopwatch.click();
       }
     },
     pause: () => {
-      if (timerRunning && timerMode === 'stopwatch' && btnStopwatchPause) {
-        btnStopwatchPause.click();
-      } else {
-        pauseSilentAudio();
+      if (timerRunning) {
+        if (timerMode === 'stopwatch' && btnStopwatchPause) {
+          btnStopwatchPause.click();
+        } else {
+          clearInterval(timerInterval);
+          timerRunning = false;
+          if (lastResumeTimestamp) {
+            stopwatchAccumulatedSec += Math.round((Date.now() - lastResumeTimestamp) / 1000);
+            lastResumeTimestamp = null;
+          }
+          pauseSilentAudio();
+          updateTimerDisplay();
+          updateMediaSession();
+        }
       }
     },
     stop: () => {
-      if (timerMode === 'stopwatch' && btnStopwatchFinish) {
-        btnStopwatchFinish.click();
-      }
+      finishSessionFromMediaControl();
     },
     nexttrack: () => {
-      // Bấm nút Next trên màn hình khoá / thanh iPad -> Kết thúc và lưu luôn
-      if (timerMode === 'stopwatch' && btnStopwatchFinish) {
-        btnStopwatchFinish.click();
-      } else if (timerMode === 'pomodoro' && btnPomodoroUrgent) {
-        btnPomodoroUrgent.click();
-      }
+      finishSessionFromMediaControl();
     },
     previoustrack: () => {
-      // Bấm nút Previous trên màn hình khoá / thanh iPad -> Huỷ kết quả
-      if (timerMode === 'stopwatch' && btnStopwatchCancel) {
-        btnStopwatchCancel.click();
-      } else if (timerMode === 'pomodoro' && btnPomodoroCancel) {
-        btnPomodoroCancel.click();
-      }
+      cancelSessionFromMediaControl();
     },
     seekbackward: () => {
       if (timerMode === 'stopwatch' && btnStopwatchPause) btnStopwatchPause.click();
     },
     seekforward: () => {
-      if (timerMode === 'stopwatch' && btnStopwatchFinish) btnStopwatchFinish.click();
+      finishSessionFromMediaControl();
     }
   };
 
@@ -1002,6 +1119,65 @@ function initMediaSessionHandlers() {
   }
 }
 initMediaSessionHandlers();
+
+async function requestBackgroundPermissions(showAlert = true) {
+  let notifGranted = false;
+  if ('Notification' in window) {
+    try {
+      const perm = await Notification.requestPermission();
+      notifGranted = (perm === 'granted');
+    } catch (e) {}
+  }
+
+  startWebAudioKeepAlive();
+
+  try {
+    if (silentAudio) {
+      const playPromise = silentAudio.play();
+      if (playPromise !== undefined) {
+        await playPromise;
+        if (!timerRunning) {
+          silentAudio.pause();
+        }
+      }
+    }
+  } catch (e) {}
+
+  updateMediaSession();
+
+  const btn = document.getElementById('btnEnableIosBackground');
+  const text = document.getElementById('bgModeStatusText');
+  if (btn) btn.classList.add('active');
+  if (text) text.innerText = '🟢 Chạy nền Spotify: Đã bật';
+
+  if (showAlert) {
+    const notifMsg = notifGranted
+      ? 'Đã bật thông báo và thanh điều khiển màn hình khóa thành công!'
+      : 'Thanh điều khiển màn hình khóa kiểu Spotify đã sẵn sàng!';
+
+    alert(`🎉 ${notifMsg}\n\nCách hoạt động:\n1. Bấm "▶ Bắt đầu" hoặc "Pomodoro".\n2. Thoát ra màn hình chính, mở app khác hoặc khóa màn hình điện thoại.\n3. Thanh điều khiển như Spotify sẽ hiện trên Màn hình khóa / Thanh thông báo:\n   • ⏸ Tạm dừng / ▶ Tiếp tục\n   • ⏭ Kết thúc & Tự động lưu vào lịch sử\n   • ⏮ Hủy kết quả\n\nBạn có thể điều khiển trực tiếp mà không cần mở lại web!`);
+  }
+}
+
+async function togglePictureInPicture() {
+  initPipVideo();
+  renderPipCanvas();
+
+  if (document.pictureInPictureElement) {
+    try {
+      await document.exitPictureInPicture();
+    } catch (e) {}
+  } else {
+    try {
+      if (pipVideo) {
+        await pipVideo.play();
+        await pipVideo.requestPictureInPicture();
+      }
+    } catch (e) {
+      alert('Chế độ Cửa sổ nổi (PiP) cần hỗ trợ của trình duyệt hoặc bạn đang dùng trên thiết bị không hỗ trợ PiP. Bạn có thể sử dụng chế độ Chạy nền & Màn hình khóa kiểu Spotify để đếm giờ khi tắt app!');
+    }
+  }
+}
 
 // Picture-in-Picture (Cửa sổ nổi tự động khi out trình duyệt) cho iPad / Điện thoại
 let pipCanvas = null;
@@ -1025,11 +1201,13 @@ function initPipVideo() {
   pipVideo.setAttribute('autopictureinpicture', '');
   pipVideo.autoPictureInPicture = true;
   pipVideo.style.position = 'fixed';
-  pipVideo.style.opacity = '0';
+  pipVideo.style.bottom = '10px';
+  pipVideo.style.right = '10px';
+  pipVideo.style.width = '160px';
+  pipVideo.style.height = '90px';
+  pipVideo.style.opacity = '0.001';
   pipVideo.style.pointerEvents = 'none';
-  pipVideo.style.width = '1px';
-  pipVideo.style.height = '1px';
-  pipVideo.style.left = '-9999px';
+  pipVideo.style.zIndex = '-999';
   document.body.appendChild(pipVideo);
 
   if (pipCanvas.captureStream) {
@@ -1093,6 +1271,23 @@ const btnStopwatchCancel = document.getElementById('btnStopwatchCancel');
 const btnPomodoroGiveUp = document.getElementById('btnPomodoroGiveUp');
 const btnPomodoroUrgent = document.getElementById('btnPomodoroUrgent');
 const btnPomodoroCancel = document.getElementById('btnPomodoroCancel');
+const btnEnableIosBackground = document.getElementById('btnEnableIosBackground');
+const btnTogglePip = document.getElementById('btnTogglePip');
+const btnPipActive = document.getElementById('btnPipActive');
+const btnPipActivePomo = document.getElementById('btnPipActivePomo');
+
+if (btnEnableIosBackground) {
+  btnEnableIosBackground.addEventListener('click', () => requestBackgroundPermissions(true));
+}
+if (btnTogglePip) {
+  btnTogglePip.addEventListener('click', togglePictureInPicture);
+}
+if (btnPipActive) {
+  btnPipActive.addEventListener('click', togglePictureInPicture);
+}
+if (btnPipActivePomo) {
+  btnPipActivePomo.addEventListener('click', togglePictureInPicture);
+}
 
 // Modals
 const finishSessionModal = document.getElementById('finishSessionModal');
@@ -1206,6 +1401,7 @@ if (btnStartStopwatch) {
     lastResumeTimestamp = Date.now();
 
     updateTimerDisplay();
+    requestBackgroundPermissions(false);
     playSilentAudio();
 
     // Khởi tạo video PiP sẵn sàng tự động bật khi out trình duyệt
@@ -1310,6 +1506,7 @@ if (btnStartPomodoro) {
     pomodoroTargetTimestamp = Date.now() + 25 * 60 * 1000;
 
     updateTimerDisplay();
+    requestBackgroundPermissions(false);
     playSilentAudio();
 
     // Khởi tạo video PiP sẵn sàng tự động bật khi out trình duyệt
