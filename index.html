@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261115_07">
+  <link rel="stylesheet" href="style.css?v=20261120_01">
   <style>
 :root {
   --bg-canvas: #dbe3d9;
@@ -797,7 +797,7 @@ body.dark-mode .lvl-4 { background: #68e870; }
             <div class="kpi-grid">
               
               <!-- Card 1: Study Time -->
-              <div class="kpi-card card-blue-soft">
+              <div class="kpi-card card-blue-soft" id="cardKpiStudy" style="cursor: pointer;" title="Bấm để xem chi tiết 24h học tập">
                 <div class="kpi-top">
                   <div class="kpi-label-group">
                     <span class="kpi-title">Thời gian tự học</span>
@@ -969,7 +969,12 @@ body.dark-mode .lvl-4 { background: #68e870; }
                     <h2 class="block-title">Lịch sử học tập</h2>
                     <p class="block-subtitle">Ghi nhận các phiên học & Pomodoro</p>
                   </div>
-                  <span class="badge-pill" id="historySessionCountBadge">Gần đây</span>
+                  <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                    <span class="badge-pill" id="historySessionCountBadge">Gần đây</span>
+                    <button id="btnOpenTimelineModal" class="btn-pill btn-pill-dark btn-sm" title="Xem phân bổ 24h học tập chi tiết theo từng ngày">
+                      📊 Chi tiết 24h
+                    </button>
+                  </div>
                 </div>
                 <div id="studyLogsList" class="study-logs-stack"></div>
               </div>
@@ -1160,6 +1165,85 @@ body.dark-mode .lvl-4 { background: #68e870; }
     </div>
   </div>
 
+  <!-- MODAL: CHI TIẾT LỊCH SỬ HỌC TẬP 24H THEO NGÀY -->
+  <div id="studyTimelineModal" class="modal-backdrop hidden">
+    <div class="modal-pill-box modal-timeline-box">
+      <div class="modal-head">
+        <div>
+          <h3>📊 Chi tiết lịch sử học tập 24h</h3>
+          <p class="modal-subtitle" style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.2rem;">
+            Phân bổ thời gian học từ 00:00 đến 24:00 theo từng ngày
+          </p>
+        </div>
+        <button id="btnCloseTimelineModal" class="btn-close">×</button>
+      </div>
+
+      <!-- Date selector bar -->
+      <div class="timeline-nav-bar">
+        <div class="timeline-day-arrows">
+          <button id="btnTimelinePrevDay" class="btn-pill btn-pill-outline btn-sm" title="Ngày trước">◀</button>
+          <div class="timeline-date-display">
+            <input type="date" id="timelineDatePicker" class="timeline-native-date">
+            <span id="timelineSelectedDateText" class="timeline-date-label">Hôm nay</span>
+          </div>
+          <button id="btnTimelineNextDay" class="btn-pill btn-pill-outline btn-sm" title="Ngày sau">▶</button>
+        </div>
+
+        <div class="timeline-quick-pills">
+          <button class="timeline-quick-pill" data-offset="0">Hôm nay</button>
+          <button class="timeline-quick-pill" data-offset="-1">Hôm qua</button>
+          <button class="timeline-quick-pill" data-offset="-2">Ngày kia</button>
+        </div>
+      </div>
+
+      <!-- Day Summary Badge -->
+      <div class="timeline-day-summary" id="timelineDaySummary">
+        <span class="timeline-sum-tag">⏱ Tổng thời gian học: <strong id="timelineTotalHoursText">0.0 giờ</strong> (<span id="timelineSessionCountText">0 phiên</span>)</span>
+      </div>
+
+      <!-- 24-Hour Continuous Timeline Visual Bar -->
+      <div class="timeline-24h-container">
+        <div class="timeline-24h-labels">
+          <span>00:00</span>
+          <span>03:00</span>
+          <span>06:00</span>
+          <span>09:00</span>
+          <span>12:00</span>
+          <span>15:00</span>
+          <span>18:00</span>
+          <span>21:00</span>
+          <span>24:00</span>
+        </div>
+        <div class="timeline-24h-track" id="timeline24hTrack">
+          <!-- Filled blocks dynamically injected here -->
+        </div>
+      </div>
+
+      <!-- 24-Hour Block Grid (Chia 24 khung giờ sáng / chiều / tối) -->
+      <div class="timeline-hours-grid-wrapper">
+        <div class="timeline-grid-heading">
+          <span>Khung giờ 24 tiếng trong ngày:</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">🟢 = Đã học trong khung giờ này</span>
+        </div>
+        <div class="timeline-24h-grid" id="timeline24hGrid">
+          <!-- 24 blocks from 0h to 23h injected here -->
+        </div>
+      </div>
+
+      <!-- List of specific sessions on that day -->
+      <div class="timeline-sessions-section">
+        <h4 style="font-size: 0.95rem; margin-bottom: 0.75rem;">Các phiên học trong ngày:</h4>
+        <div id="timelineSessionsList" class="timeline-sessions-list">
+          <!-- Session cards -->
+        </div>
+      </div>
+
+      <div class="modal-foot" style="margin-top: 1.25rem;">
+        <button id="btnCloseTimelineModalBottom" class="btn-pill btn-pill-outline" style="width: 100%;">Đóng</button>
+      </div>
+    </div>
+  </div>
+
   <!-- GOOGLE SHEETS SETTINGS MODAL -->
   <div id="settingsModal" class="modal-backdrop hidden">
     <div class="modal-pill-box">
@@ -1190,6 +1274,6 @@ body.dark-mode .lvl-4 { background: #68e870; }
     </div>
   </div>
 
-  <script src="app.js?v=20261115_07"></script>
+  <script src="app.js?v=20261120_01"></script>
 </body>
 </html>

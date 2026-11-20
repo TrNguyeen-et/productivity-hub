@@ -71,6 +71,14 @@ function formatScheduleTime(val) {
   return str;
 }
 
+// Lấy ngày theo giờ địa phương (tránh lệch timezone UTC) dạng YYYY-MM-DD
+function getLocalDateString(d = new Date()) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // Chuẩn hoá ngày YYYY-MM-DD dùng cho biểu đồ Heatmap & khớp ngày
 function formatLogDate(val) {
   if (!val) return '';
@@ -393,6 +401,63 @@ async function fetchAllFromSheet() {
   }
 }
 
+// Đồng bộ ngầm không hiện thông báo alert (dùng cho cập nhật thời gian thực tự động)
+async function silentSyncFromSheet() {
+  if (!state.apiUrl) return;
+  try {
+    const res = await fetch(state.apiUrl);
+    const json = await res.json();
+    if (json.status === 'success' && json.data) {
+      if (json.data.Todos) {
+        state.todos = json.data.Todos
+          .filter(t => (!t.user || t.user === activeUser) && (!t.id || !t.id.startsWith('td_demo_')))
+          .map(t => ({
+            ...t,
+            created_at: formatDisplayDate(t.created_at)
+          }));
+        saveToStorage('todos', state.todos);
+      }
+      if (json.data.Notes) {
+        state.notes = json.data.Notes
+          .filter(n => (!n.user || n.user === activeUser) && (!n.id || !n.id.startsWith('nt_demo_')))
+          .map(n => ({
+            ...n,
+            title: formatNoteTitle(n.title),
+            updated_at: formatDisplayDate(n.updated_at)
+          }));
+        saveToStorage('notes', state.notes);
+      }
+      if (json.data.StudyLogs) {
+        state.studyLogs = json.data.StudyLogs
+          .filter(l => (!l.user || l.user === activeUser) && (!l.id || !l.id.startsWith('lg_demo_')))
+          .map(l => ({
+            ...l,
+            date: formatDisplayDate(l.date)
+          }));
+        saveToStorage('study_logs', state.studyLogs);
+      }
+      if (json.data.Schedule) {
+        state.schedule = json.data.Schedule
+          .filter(s => (!s.user || s.user === activeUser) && (!s.id || !['s1', 's2', 's3', 's4'].includes(s.id)))
+          .map(s => ({
+            ...s,
+            start_time: formatScheduleTime(s.start_time),
+            end_time: formatScheduleTime(s.end_time)
+          }));
+        saveToStorage('schedule', state.schedule);
+      }
+      if (json.data.Goals) {
+        state.goals = json.data.Goals.filter(g => (!g.user || g.user === activeUser) && (!g.id || !['g1', 'g2'].includes(g.id)));
+        saveToStorage('goals', state.goals);
+      }
+      renderAll();
+      updateSyncUI('synced', 'Đã đồng bộ');
+    }
+  } catch (err) {
+    // Không làm gián đoạn người dùng khi mất mạng thoáng qua
+  }
+}
+
 // -------------------------------------------------------------
 // NAVIGATION
 // -------------------------------------------------------------
@@ -425,20 +490,22 @@ document.getElementById('btnStartQuickStudy').addEventListener('click', () => {
 // MODULE 1: DASHBOARD & GITHUB-STYLE ACTIVITY HEATMAP
 // -------------------------------------------------------------
 function renderDashboard() {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
 
   // 1. Study Hours KPI (chỉ tính phiên học hợp lệ, không tính phiên bỏ cuộc)
   const todayMinutes = state.studyLogs
-    .filter(log => log.date === todayStr && !log.abandoned && Number(log.duration_minutes || 0) > 0)
+    .filter(log => formatLogDate(log.date) === todayStr && !log.abandoned && Number(log.duration_minutes || 0) > 0)
     .reduce((sum, item) => sum + Number(item.duration_minutes || 0), 0);
   
   const studyHours = (todayMinutes / 60).toFixed(1);
-  document.getElementById('statStudyHours').innerText = studyHours;
+  const elemStudyHours = document.getElementById('statStudyHours');
+  if (elemStudyHours) elemStudyHours.innerText = studyHours;
   
   const targetStudyHours = 5.0;
   const activeStudySegments = Math.min(8, Math.round((parseFloat(studyHours) / targetStudyHours) * 8));
   const studyPct = Math.min(100, Math.round((parseFloat(studyHours) / targetStudyHours) * 100));
-  document.getElementById('kpiStudyPercent').innerText = `${studyPct}%`;
+  const elemStudyPct = document.getElementById('kpiStudyPercent');
+  if (elemStudyPct) elemStudyPct.innerText = `${studyPct}%`;
   
   const studyCapsules = document.querySelectorAll('#studyCapsuleBar .capsule-fill');
   studyCapsules.forEach((cap, idx) => {
@@ -1264,12 +1331,19 @@ function saveFinishSession() {
   const notes = (finishNotesInput?.value || '').trim() || defaultNotes;
   const duration = pendingElapsedMinutes || 1;
 
+  const now = new Date();
+  const endTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const startTime = new Date(now.getTime() - duration * 60 * 1000);
+  const startTimeStr = `${String(startTime.getHours()).padStart(2, '0')}:${String(startTime.getMinutes()).padStart(2, '0')}`;
+
   const newLog = {
     id: 'lg_' + Date.now(),
     user: activeUser,
     subject,
     duration_minutes: duration,
-    date: new Date().toISOString().split('T')[0],
+    start_time: startTimeStr,
+    end_time: endTimeStr,
+    date: formatDisplayDate(new Date()),
     notes
   };
 
@@ -1282,7 +1356,7 @@ function saveFinishSession() {
 
   if (finishSessionModal) finishSessionModal.classList.add('hidden');
   resetToIdle();
-  alert(`🎉 Đã lưu phiên học vào lịch sử: "${subject}" (${duration} phút)!`);
+  alert(`🎉 Đã lưu phiên học: "${subject}" (${duration} phút, ${startTimeStr} – ${endTimeStr}) vào lịch sử!`);
 }
 
 if (btnConfirmFinishModal) btnConfirmFinishModal.addEventListener('click', saveFinishSession);
@@ -1316,15 +1390,23 @@ if (finishNotesInput) {
 function saveUrgentSession() {
   const subject = (urgentSubjectInput?.value || '').trim() || 'Pomodoro';
   const reason = (urgentReasonInput?.value || '').trim() || 'Có việc gấp';
+  const duration = pendingElapsedMinutes || 1;
+
+  const now = new Date();
+  const endTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const startTime = new Date(now.getTime() - duration * 60 * 1000);
+  const startTimeStr = `${String(startTime.getHours()).padStart(2, '0')}:${String(startTime.getMinutes()).padStart(2, '0')}`;
 
   const newLog = {
     id: 'lg_' + Date.now(),
     user: activeUser,
     subject,
-    duration_minutes: pendingElapsedMinutes,
+    duration_minutes: duration,
     has_urgent_reason: true,
+    start_time: startTimeStr,
+    end_time: endTimeStr,
     notes: reason,
-    date: new Date().toISOString().split('T')[0]
+    date: formatDisplayDate(new Date())
   };
 
   state.studyLogs.unshift(newLog);
@@ -1336,7 +1418,7 @@ function saveUrgentSession() {
 
   if (urgentReasonModal) urgentReasonModal.classList.add('hidden');
   resetToIdle();
-  alert(`Đã lưu phiên học: "${subject}" (${pendingElapsedMinutes} phút) với lý do: "${reason}"!`);
+  alert(`Đã lưu phiên học: "${subject}" (${duration} phút, ${startTimeStr} – ${endTimeStr}) với lý do: "${reason}"!`);
 }
 
 if (btnConfirmUrgentModal) btnConfirmUrgentModal.addEventListener('click', saveUrgentSession);
@@ -1402,6 +1484,10 @@ function renderStudyLogs() {
   state.studyLogs.slice(0, 15).forEach(log => {
     const item = document.createElement('div');
     item.className = `study-log-item ${log.abandoned ? 'abandoned-item' : ''}`;
+    const interval = getLogTimeInterval(log);
+    const timeIntervalStr = (!log.abandoned && interval.startTime && interval.endTime)
+      ? ` (${interval.startTime} – ${interval.endTime})`
+      : '';
 
     let mainHtml = '';
     if (log.abandoned) {
@@ -1418,10 +1504,10 @@ function renderStudyLogs() {
     } else if (log.has_urgent_reason) {
       mainHtml = `
         <div>
-          <div style="display: flex; align-items: center; gap: 0.4rem;">
+          <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
             <span style="color: #f59e0b; font-size: 0.95rem;">⚡</span>
             <strong>${escapeHtml(log.subject || 'Pomodoro')}</strong>
-            <span style="font-size: 0.82rem; color: var(--text-muted);">· ${log.duration_minutes} phút</span>
+            <span style="font-size: 0.82rem; color: var(--text-muted);">· ${log.duration_minutes} phút${timeIntervalStr}</span>
           </div>
           <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
             Lý do: <em>${escapeHtml(log.notes || 'Có việc gấp')}</em>
@@ -1431,8 +1517,10 @@ function renderStudyLogs() {
     } else {
       mainHtml = `
         <div>
-          <strong>${escapeHtml(log.subject || 'Tự học')}</strong>
-          <span style="font-size: 0.82rem; color: var(--text-muted);">· ${log.duration_minutes} phút</span>
+          <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+            <strong>${escapeHtml(log.subject || 'Tự học')}</strong>
+            <span style="font-size: 0.82rem; color: var(--text-muted);">· ${log.duration_minutes} phút${timeIntervalStr}</span>
+          </div>
           ${log.notes ? `<div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">${escapeHtml(log.notes)}</div>` : ''}
         </div>
       `;
@@ -1449,6 +1537,294 @@ function renderStudyLogs() {
     container.appendChild(item);
   });
 }
+
+// -------------------------------------------------------------
+// MODULE 4.1: 24-HOUR STUDY TIMELINE MODAL (CHI TIẾT 24H THEO NGÀY)
+// -------------------------------------------------------------
+let selectedTimelineDateStr = getLocalDateString(); // Mặc định là ngày hôm nay
+
+const studyTimelineModal = document.getElementById('studyTimelineModal');
+const btnOpenTimelineModal = document.getElementById('btnOpenTimelineModal');
+const btnCloseTimelineModal = document.getElementById('btnCloseTimelineModal');
+const btnCloseTimelineModalBottom = document.getElementById('btnCloseTimelineModalBottom');
+const timelineDatePicker = document.getElementById('timelineDatePicker');
+const btnTimelinePrevDay = document.getElementById('btnTimelinePrevDay');
+const btnTimelineNextDay = document.getElementById('btnTimelineNextDay');
+
+function getLogTimeInterval(log) {
+  const durationMins = Number(log.duration_minutes || 0);
+
+  // 1. Nếu đã có start_time và end_time:
+  if (log.start_time && log.end_time && String(log.start_time).includes(':') && String(log.end_time).includes(':')) {
+    const sParts = String(log.start_time).split(':').map(Number);
+    const eParts = String(log.end_time).split(':').map(Number);
+    const startMins = sParts[0] * 60 + sParts[1];
+    let endMins = eParts[0] * 60 + eParts[1];
+    if (endMins <= startMins) endMins = startMins + durationMins;
+    return {
+      startTime: formatScheduleTime(log.start_time),
+      endTime: formatScheduleTime(log.end_time),
+      startMins,
+      endMins
+    };
+  }
+
+  // 2. Trích xuất thời gian từ epoch id: "lg_1795139138486"
+  let finishTimestamp = null;
+  if (log.id && /^lg_\d{10,}$/.test(log.id)) {
+    finishTimestamp = parseInt(log.id.replace('lg_', ''), 10);
+  } else if (log.created_at && !isNaN(new Date(log.created_at).getTime())) {
+    finishTimestamp = new Date(log.created_at).getTime();
+  }
+
+  if (finishTimestamp) {
+    const finishDate = new Date(finishTimestamp);
+    const startDate = new Date(finishTimestamp - durationMins * 60 * 1000);
+    const sH = String(startDate.getHours()).padStart(2, '0');
+    const sM = String(startDate.getMinutes()).padStart(2, '0');
+    const fH = String(finishDate.getHours()).padStart(2, '0');
+    const fM = String(finishDate.getMinutes()).padStart(2, '0');
+    const startMins = startDate.getHours() * 60 + startDate.getMinutes();
+    const endMins = finishDate.getHours() * 60 + finishDate.getMinutes();
+    return {
+      startTime: `${sH}:${sM}`,
+      endTime: `${fH}:${fM}`,
+      startMins,
+      endMins: endMins > startMins ? endMins : startMins + durationMins
+    };
+  }
+
+  // 3. Fallback slot hợp lý (ví dụ: 14:00 - 14:00 + duration)
+  const defaultStart = 14 * 60;
+  const defaultEnd = Math.min(1440, defaultStart + durationMins);
+  const sH = String(Math.floor(defaultStart / 60)).padStart(2, '0');
+  const sM = String(defaultStart % 60).padStart(2, '0');
+  const fH = String(Math.floor(defaultEnd / 60)).padStart(2, '0');
+  const fM = String(defaultEnd % 60).padStart(2, '0');
+  return {
+    startTime: `${sH}:${sM}`,
+    endTime: `${fH}:${fM}`,
+    startMins: defaultStart,
+    endMins: defaultEnd
+  };
+}
+
+function renderStudyTimeline() {
+  const dParts = selectedTimelineDateStr.split('-').map(Number);
+  const targetDate = new Date(dParts[0], dParts[1] - 1, dParts[2]);
+
+  // Cập nhật date input & text hiển thị
+  if (timelineDatePicker) timelineDatePicker.value = selectedTimelineDateStr;
+  
+  const todayStr = getLocalDateString();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = getLocalDateString(yesterday);
+  const dayBefore = new Date();
+  dayBefore.setDate(dayBefore.getDate() - 2);
+  const dayBeforeStr = getLocalDateString(dayBefore);
+
+  let relativeDay = '';
+  if (selectedTimelineDateStr === todayStr) relativeDay = ' (Hôm nay)';
+  else if (selectedTimelineDateStr === yesterdayStr) relativeDay = ' (Hôm qua)';
+  else if (selectedTimelineDateStr === dayBeforeStr) relativeDay = ' (Ngày kia)';
+
+  const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+  const dayOfWeek = dayNames[targetDate.getDay()];
+  const formattedDateVN = `${dayOfWeek}, ${String(targetDate.getDate()).padStart(2, '0')}/${String(targetDate.getMonth() + 1).padStart(2, '0')}/${targetDate.getFullYear()}`;
+
+  const labelElem = document.getElementById('timelineSelectedDateText');
+  if (labelElem) labelElem.innerText = `${formattedDateVN}${relativeDay}`;
+
+  // Active state quick pills
+  document.querySelectorAll('.timeline-quick-pill').forEach(pill => {
+    const offset = parseInt(pill.dataset.offset, 10);
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    pill.classList.toggle('active', getLocalDateString(d) === selectedTimelineDateStr);
+  });
+
+  // Lọc các phiên học của ngày này
+  const dayLogs = state.studyLogs.filter(log => {
+    if (log.abandoned) return false;
+    const logDateStr = formatLogDate(log.date);
+    return logDateStr === selectedTimelineDateStr && Number(log.duration_minutes || 0) > 0;
+  });
+
+  const totalMinutes = dayLogs.reduce((sum, l) => sum + Number(l.duration_minutes || 0), 0);
+  const totalHours = (totalMinutes / 60).toFixed(1);
+
+  const hoursTextElem = document.getElementById('timelineTotalHoursText');
+  if (hoursTextElem) hoursTextElem.innerText = `${totalHours} giờ (${totalMinutes} phút)`;
+
+  const countTextElem = document.getElementById('timelineSessionCountText');
+  if (countTextElem) countTextElem.innerText = `${dayLogs.length} phiên học`;
+
+  // 1. RENDER 24H CONTINUOUS TRACK
+  const track = document.getElementById('timeline24hTrack');
+  if (track) {
+    track.innerHTML = '';
+    dayLogs.forEach(log => {
+      const interval = getLogTimeInterval(log);
+      const leftPct = Math.max(0, Math.min(100, (interval.startMins / 1440) * 100));
+      const widthPct = Math.max(0.8, Math.min(100 - leftPct, ((interval.endMins - interval.startMins) / 1440) * 100));
+
+      const block = document.createElement('div');
+      block.className = 'timeline-session-block';
+      block.style.left = `${leftPct}%`;
+      block.style.width = `${widthPct}%`;
+      block.title = `${log.subject}: ${interval.startTime} – ${interval.endTime} (${log.duration_minutes} phút)`;
+      track.appendChild(block);
+    });
+  }
+
+  // 2. RENDER 24-HOUR BLOCK GRID (0h - 23h)
+  const grid = document.getElementById('timeline24hGrid');
+  if (grid) {
+    grid.innerHTML = '';
+    for (let h = 0; h < 24; h++) {
+      const hStart = h * 60;
+      const hEnd = (h + 1) * 60;
+
+      // Tính tổng phút đã học trong khung giờ này
+      let hourStudiedMins = 0;
+      const studiedSubjects = [];
+
+      dayLogs.forEach(log => {
+        const interval = getLogTimeInterval(log);
+        const overlapStart = Math.max(hStart, interval.startMins);
+        const overlapEnd = Math.min(hEnd, interval.endMins);
+        if (overlapEnd > overlapStart) {
+          hourStudiedMins += (overlapEnd - overlapStart);
+          if (!studiedSubjects.includes(log.subject)) studiedSubjects.push(log.subject);
+        }
+      });
+
+      const slot = document.createElement('div');
+      const isStudied = hourStudiedMins > 0;
+      slot.className = `timeline-hour-slot ${isStudied ? 'studied-hour' : ''}`;
+
+      const hLabel = `${String(h).padStart(2, '0')}:00`;
+      const nextHLabel = `${String((h + 1) % 24).padStart(2, '0')}:00`;
+
+      slot.innerHTML = `
+        <div class="hour-time">${hLabel}</div>
+        <div class="hour-stat">${isStudied ? `${hourStudiedMins}m` : '-'}</div>
+      `;
+      if (isStudied) {
+        slot.title = `${hLabel} – ${nextHLabel}: Học ${hourStudiedMins} phút (${studiedSubjects.join(', ')})`;
+      } else {
+        slot.title = `${hLabel} – ${nextHLabel}: Không có hoạt động`;
+      }
+      grid.appendChild(slot);
+    }
+  }
+
+  // 3. RENDER SESSIONS LIST
+  const list = document.getElementById('timelineSessionsList');
+  if (list) {
+    list.innerHTML = '';
+    if (dayLogs.length === 0) {
+      list.innerHTML = `
+        <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 1.5rem 0.5rem;">
+          ☕ Ngày này bạn chưa có phiên học nào được ghi nhận.
+        </div>
+      `;
+    } else {
+      dayLogs.forEach(log => {
+        const interval = getLogTimeInterval(log);
+        const item = document.createElement('div');
+        item.className = 'timeline-session-item';
+        item.innerHTML = `
+          <div>
+            <div class="session-title">${escapeHtml(log.subject || 'Tự học')}</div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">
+              ${escapeHtml(log.notes || 'Hoàn thành phiên học')}
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div class="session-time">${interval.startTime} – ${interval.endTime}</div>
+            <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: 0.2rem;">
+              <strong>${log.duration_minutes} phút</strong>
+            </div>
+          </div>
+        `;
+        list.appendChild(item);
+      });
+    }
+  }
+}
+
+if (btnOpenTimelineModal) {
+  btnOpenTimelineModal.addEventListener('click', () => {
+    selectedTimelineDateStr = getLocalDateString();
+    renderStudyTimeline();
+    if (studyTimelineModal) studyTimelineModal.classList.remove('hidden');
+  });
+}
+
+const cardKpiStudyElem = document.getElementById('cardKpiStudy');
+if (cardKpiStudyElem) {
+  cardKpiStudyElem.addEventListener('click', () => {
+    if (btnOpenTimelineModal) {
+      btnOpenTimelineModal.click();
+    } else {
+      selectedTimelineDateStr = getLocalDateString();
+      renderStudyTimeline();
+      if (studyTimelineModal) studyTimelineModal.classList.remove('hidden');
+    }
+  });
+}
+
+if (btnCloseTimelineModal) {
+  btnCloseTimelineModal.addEventListener('click', () => {
+    if (studyTimelineModal) studyTimelineModal.classList.add('hidden');
+  });
+}
+if (btnCloseTimelineModalBottom) {
+  btnCloseTimelineModalBottom.addEventListener('click', () => {
+    if (studyTimelineModal) studyTimelineModal.classList.add('hidden');
+  });
+}
+
+if (timelineDatePicker) {
+  timelineDatePicker.addEventListener('change', (e) => {
+    if (e.target.value) {
+      selectedTimelineDateStr = e.target.value;
+      renderStudyTimeline();
+    }
+  });
+}
+
+if (btnTimelinePrevDay) {
+  btnTimelinePrevDay.addEventListener('click', () => {
+    const dParts = selectedTimelineDateStr.split('-').map(Number);
+    const d = new Date(dParts[0], dParts[1] - 1, dParts[2]);
+    d.setDate(d.getDate() - 1);
+    selectedTimelineDateStr = getLocalDateString(d);
+    renderStudyTimeline();
+  });
+}
+
+if (btnTimelineNextDay) {
+  btnTimelineNextDay.addEventListener('click', () => {
+    const dParts = selectedTimelineDateStr.split('-').map(Number);
+    const d = new Date(dParts[0], dParts[1] - 1, dParts[2]);
+    d.setDate(d.getDate() + 1);
+    selectedTimelineDateStr = getLocalDateString(d);
+    renderStudyTimeline();
+  });
+}
+
+document.querySelectorAll('.timeline-quick-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    const offset = parseInt(pill.dataset.offset, 10);
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    selectedTimelineDateStr = getLocalDateString(d);
+    renderStudyTimeline();
+  });
+});
 
 // Bắt sự kiện xoá phiên học
 const studyLogsListElem = document.getElementById('studyLogsList');
@@ -2111,3 +2487,36 @@ if (activeUser) {
   renderAll();
 }
 showWelcomePortal();
+
+// -------------------------------------------------------------
+// MODULE 5: REAL-TIME CONTINUOUS BACKGROUND UPDATE TICKER
+// -------------------------------------------------------------
+// Tự động cập nhật giao diện theo thời gian thực và đồng bộ Sheet mỗi 45 giây
+setInterval(() => {
+  renderDashboard();
+  renderSchedule();
+  if (state.apiUrl) {
+    silentSyncFromSheet();
+  }
+}, 45000);
+
+// Đồng bộ và làm mới ngay khi người dùng chuyển lại tab trình duyệt
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    renderDashboard();
+    renderSchedule();
+    if (state.apiUrl) {
+      silentSyncFromSheet();
+    }
+  }
+});
+
+// Bấm vào nhãn trạng thái đồng bộ (#syncBadge) để đồng bộ ngay lập tức
+const syncBadgeElem = document.getElementById('syncBadge');
+if (syncBadgeElem) {
+  syncBadgeElem.style.cursor = 'pointer';
+  syncBadgeElem.title = 'Bấm để đồng bộ dữ liệu ngay lập tức với Google Sheets';
+  syncBadgeElem.addEventListener('click', () => {
+    fetchAllFromSheet();
+  });
+}
