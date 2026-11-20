@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261120_04">
+  <link rel="stylesheet" href="style.css?v=20261120_05">
 </head>
 <body>
 
@@ -305,9 +305,9 @@
                   <div class="timer-focus-tag">
                     <span>Không gian tập trung</span>
                   </div>
-                  <button id="btnEnableIosBackground" class="btn-background-mode" type="button" title="Bấm kích hoạt quyền chạy nền và thanh điều khiển màn hình khóa kiểu Spotify">
+                  <button id="btnEnableIosBackground" class="btn-background-mode active" type="button" title="Chế độ tự động chạy nền khi thoát web hoặc tắt màn hình">
                     <span class="bg-mode-dot" id="bgModeDot"></span>
-                    <span id="bgModeStatusText">Bật Chạy nền &amp; Màn hình khóa (Spotify)</span>
+                    <span id="bgModeStatusText">Chạy nền</span>
                   </button>
                 </div>
 
@@ -318,7 +318,7 @@
                 <div id="timerActionIdle" class="timer-action-row">
                   <button id="btnStartStopwatch" class="btn-pill btn-pill-dark btn-pill-lg">▶ Bắt đầu</button>
                   <button id="btnStartPomodoro" class="btn-pill btn-pill-outline btn-pill-lg">Pomodoro</button>
-                  <button id="btnTogglePip" class="btn-pill btn-pill-outline btn-pill-lg" title="Ghim đồng hồ nổi góc màn hình khi dùng app khác (Picture-in-Picture)">📺 Ghim nổi (PiP)</button>
+                  <button id="btnTogglePip" class="btn-pill btn-pill-outline btn-pill-lg" title="Ghim đồng hồ nổi góc màn hình khi dùng app khác (Picture-in-Picture)">Ghim nổi (PiP)</button>
                 </div>
 
                 <!-- 2. Trạng thái Đang đếm xuôi: Nút Tạm dừng, Kết thúc & Huỷ kết quả -->
@@ -326,7 +326,7 @@
                   <button id="btnStopwatchPause" class="btn-pill btn-pill-dark btn-pill-lg">⏸ Tạm dừng</button>
                   <button id="btnStopwatchFinish" class="btn-pill btn-pill-dark btn-pill-lg" title="Kết thúc và ghi nhận nội dung đã học">⏹ Kết thúc</button>
                   <button id="btnStopwatchCancel" class="btn-pill btn-pill-outline btn-pill-lg" title="Huỷ phiên học, không lưu kết quả">✕ Huỷ kết quả</button>
-                  <button id="btnPipActive" class="btn-pill btn-pill-outline btn-pill-lg" title="Ghim đồng hồ nổi (PiP)">📺 Ghim nổi</button>
+                  <button id="btnPipActive" class="btn-pill btn-pill-outline btn-pill-lg" title="Ghim đồng hồ nổi (PiP)">Ghim nổi</button>
                 </div>
 
                 <!-- 3. Trạng thái Đang chạy Pomodoro: Nút Bỏ cuộc, Có việc gấp & Huỷ phiên -->
@@ -334,7 +334,7 @@
                   <button id="btnPomodoroGiveUp" class="btn-pill btn-pill-danger btn-pill-lg" title="Bỏ cuộc phiên Pomodoro (đưa vào lịch sử với dấu !)">⚠️ Bỏ cuộc</button>
                   <button id="btnPomodoroUrgent" class="btn-pill btn-pill-warning btn-pill-lg" title="Tạm dừng do có việc gấp (lưu lý do)">⚡ Có việc gấp</button>
                   <button id="btnPomodoroCancel" class="btn-pill btn-pill-outline btn-pill-lg" title="Huỷ phiên Pomodoro không lưu">✕ Huỷ phiên</button>
-                  <button id="btnPipActivePomo" class="btn-pill btn-pill-outline btn-pill-lg" title="Ghim đồng hồ nổi (PiP)">📺 Ghim nổi</button>
+                  <button id="btnPipActivePomo" class="btn-pill btn-pill-outline btn-pill-lg" title="Ghim đồng hồ nổi (PiP)">Ghim nổi</button>
                 </div>
 
                 <div class="timer-focus-footer">
@@ -654,6 +654,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261120_03"></script>
+  <script src="app.js?v=20261120_05"></script>
 </body>
 </html>

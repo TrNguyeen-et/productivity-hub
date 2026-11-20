@@ -1148,14 +1148,27 @@ async function requestBackgroundPermissions(showAlert = true) {
   const btn = document.getElementById('btnEnableIosBackground');
   const text = document.getElementById('bgModeStatusText');
   if (btn) btn.classList.add('active');
-  if (text) text.innerText = '🟢 Chạy nền Spotify: Đã bật';
+  if (text) text.innerText = 'Chạy nền';
 
   if (showAlert) {
-    const notifMsg = notifGranted
-      ? 'Đã bật thông báo và thanh điều khiển màn hình khóa thành công!'
-      : 'Thanh điều khiển màn hình khóa kiểu Spotify đã sẵn sàng!';
+    alert(`⚡ Tự động Chạy nền đã sẵn sàng!\n\nKhi bạn bấm "▶ Bắt đầu" hoặc "Pomodoro" rồi thoát ra ngoài (làm việc khác hoặc tắt màn hình):\n• Đồng hồ sẽ tự động đếm giờ ở chế độ chạy nền.\n• Thanh thông báo & Màn hình khóa sẽ tự động hiện thanh điều khiển để Tạm dừng, Tiếp tục hoặc Kết thúc & Lưu.`);
+  }
+}
 
-    alert(`🎉 ${notifMsg}\n\nCách hoạt động:\n1. Bấm "▶ Bắt đầu" hoặc "Pomodoro".\n2. Thoát ra màn hình chính, mở app khác hoặc khóa màn hình điện thoại.\n3. Thanh điều khiển như Spotify sẽ hiện trên Màn hình khóa / Thanh thông báo:\n   • ⏸ Tạm dừng / ▶ Tiếp tục\n   • ⏭ Kết thúc & Tự động lưu vào lịch sử\n   • ⏮ Hủy kết quả\n\nBạn có thể điều khiển trực tiếp mà không cần mở lại web!`);
+function showBackgroundNotification() {
+  if (!timerRunning) return;
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      const modeLabel = timerMode === 'pomodoro' ? 'Pomodoro' : 'Tự học';
+      const timeStr = timerDisplay ? timerDisplay.innerText : '00:00';
+      new Notification(`⏱ ${modeLabel}: ${timeStr} (Đang chạy nền)`, {
+        body: 'Đang theo dõi thời gian học tập. Bấm để quay lại ứng dụng!',
+        icon: new URL('favicon.png', window.location.href).href,
+        tag: 'study-timer-running',
+        renotify: false,
+        silent: true
+      });
+    } catch (e) {}
   }
 }
 
@@ -1694,25 +1707,31 @@ if (btnCancelUrgentModal) btnCancelUrgentModal.addEventListener('click', () => {
   resetToIdle();
 });
 
-// Tự động kích hoạt Cửa sổ nổi (PiP) khi out trình duyệt hoặc đổi app
+// Tự động kích hoạt Chạy nền, Màn hình khóa & Cửa sổ nổi (PiP) khi out trình duyệt hoặc đổi app
 document.addEventListener('visibilitychange', () => {
   if (timerRunning) {
     tickTimer();
+    updateMediaSession();
     if (document.hidden) {
       autoEnterPip();
+      showBackgroundNotification();
     }
   }
 });
 
 window.addEventListener('pagehide', () => {
   if (timerRunning) {
+    updateMediaSession();
     autoEnterPip();
+    showBackgroundNotification();
   }
 });
 
 window.addEventListener('blur', () => {
   if (timerRunning) {
+    updateMediaSession();
     autoEnterPip();
+    showBackgroundNotification();
   }
 });
 
