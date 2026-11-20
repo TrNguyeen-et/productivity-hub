@@ -839,32 +839,73 @@ let pomodoroTargetTimestamp = null;
 let pendingElapsedMinutes = 0;
 let pendingTotalSeconds = 0;
 
-// iPad / Mobile Media Session (Thanh điều khiển Lock Screen & Chạy nền)
+// iPad / Mobile Media Session (Thanh điều khiển Lock Screen & Chạy nền giống Spotify)
 const silentAudio = new Audio('silent.wav');
 silentAudio.loop = true;
 
-function playSilentAudio() {
-  if (!silentAudio) return;
-  silentAudio.play().then(() => {
-    updateMediaSession();
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.playbackState = 'playing';
+// Web Audio API Keep-Alive (Dự phòng vững chắc cho iOS Safari khi tắt màn hình)
+let audioCtx = null;
+let oscillatorNode = null;
+let gainNode = null;
+
+function startWebAudioKeepAlive() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!audioCtx) audioCtx = new AudioContextClass();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
     }
-  }).catch(() => {});
+    if (!oscillatorNode) {
+      oscillatorNode = audioCtx.createOscillator();
+      gainNode = audioCtx.createGain();
+      gainNode.gain.setValueAtTime(0.0001, audioCtx.currentTime); // Âm lượng siêu nhỏ không gây ồn
+      oscillatorNode.frequency.setValueAtTime(40, audioCtx.currentTime);
+      oscillatorNode.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillatorNode.start();
+    }
+  } catch (e) {}
+}
+
+function stopWebAudioKeepAlive() {
+  try {
+    if (oscillatorNode) {
+      oscillatorNode.stop();
+      oscillatorNode.disconnect();
+      oscillatorNode = null;
+    }
+  } catch (e) {}
+}
+
+function playSilentAudio() {
+  startWebAudioKeepAlive();
+  if (silentAudio) {
+    silentAudio.play().then(() => {
+      updateMediaSession();
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'playing';
+      }
+    }).catch(() => {});
+  }
 }
 
 function pauseSilentAudio() {
-  if (!silentAudio) return;
-  silentAudio.pause();
+  stopWebAudioKeepAlive();
+  if (silentAudio) {
+    silentAudio.pause();
+  }
   if ('mediaSession' in navigator) {
     navigator.mediaSession.playbackState = 'paused';
   }
 }
 
 function stopSilentAudio() {
-  if (!silentAudio) return;
-  silentAudio.pause();
-  silentAudio.currentTime = 0;
+  stopWebAudioKeepAlive();
+  if (silentAudio) {
+    silentAudio.pause();
+    silentAudio.currentTime = 0;
+  }
   if ('mediaSession' in navigator) {
     navigator.mediaSession.playbackState = 'none';
   }
@@ -881,10 +922,29 @@ function updateMediaSession() {
       artist: 'I wanna be better (Đang chạy nền)',
       album: '⏭ Kết thúc & Lưu | ⏮ Huỷ | ⏸ Tạm dừng',
       artwork: [
-        { src: 'favicon.ico', sizes: '96x96', type: 'image/x-icon' },
-        { src: 'favicon.ico', sizes: '192x192', type: 'image/x-icon' }
+        { src: 'favicon.png', sizes: '96x96', type: 'image/png' },
+        { src: 'favicon.png', sizes: '192x192', type: 'image/png' },
+        { src: 'favicon.png', sizes: '512x512', type: 'image/png' }
       ]
     });
+
+    if ('setPositionState' in navigator.mediaSession) {
+      if (timerMode === 'pomodoro') {
+        const elapsed = Math.max(0, (25 * 60) - timerSeconds);
+        navigator.mediaSession.setPositionState({
+          duration: 25 * 60,
+          playbackRate: timerRunning ? 1 : 0,
+          position: Math.min(25 * 60, elapsed)
+        });
+      } else if (timerMode === 'stopwatch') {
+        const totalSec = Math.max(1, stopwatchAccumulatedSec || timerSeconds || 1);
+        navigator.mediaSession.setPositionState({
+          duration: Math.max(totalSec, 3600),
+          playbackRate: timerRunning ? 1 : 0,
+          position: totalSec
+        });
+      }
+    }
   } catch (e) {}
 }
 
@@ -926,6 +986,12 @@ function initMediaSessionHandlers() {
       } else if (timerMode === 'pomodoro' && btnPomodoroCancel) {
         btnPomodoroCancel.click();
       }
+    },
+    seekbackward: () => {
+      if (timerMode === 'stopwatch' && btnStopwatchPause) btnStopwatchPause.click();
+    },
+    seekforward: () => {
+      if (timerMode === 'stopwatch' && btnStopwatchFinish) btnStopwatchFinish.click();
     }
   };
 
